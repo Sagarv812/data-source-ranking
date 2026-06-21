@@ -1,0 +1,69 @@
+{
+  "context_need": {
+    "id": "need_acme_renewal",
+    "client_id": "client_acme",
+    "account_id": "account_acme",
+    "opportunity_id": "opp_acme_renewal_2026",
+    "email_goal": "Prepare account handoff before renewal pitch.",
+    "needed_claims": [
+      {
+        "id": "need_claim_current_concern",
+        "type": "current_client_concern",
+        "description": "Current client concern that should shape renewal messaging.",
+        "required": true
+      },
+      {
+        "id": "need_claim_validated_prior_work",
+        "type": "validated_prior_work",
+        "description": "Validated prior work that can be safely mentioned.",
+        "required": true
+      }
+    ],
+    "risk_tolerance": "normal"
+  },
+  "source": {
+    "id": "src_acme_crm_note",
+    "type": "crm_note",
+    "title": "Acme renewal prep note",
+    "summary": "Client pushed back on implementation timeline in the last QBR.",
+    "client_id": "client_acme",
+    "account_id": "account_acme",
+    "opportunity_id": "opp_acme_renewal_2026",
+    "directness_relation": "same_client_same_opportunity",
+    "created_at": "2026-06-01",
+    "updated_at": "2026-06-02",
+    "author": {
+      "id": "user_priya",
+      "name": "Priya Shah",
+      "role": "account_owner",
+      "role_title": "Account Owner",
+      "email": "priya@example.com"
+    },
+    "owner_candidates": [
+      {
+        "id": "user_priya",
+        "name": "Priya Shah",
+        "role": "account_owner",
+        "role_title": "Account Owner",
+        "reason": "Account owner and author of the renewal prep note.",
+        "confidence": 0.95
+      }
+    ],
+    "sensitivity_labels": [],
+    "source_system": "salesforce",
+    "claims": [
+      {
+        "id": "claim_acme_timeline_concern",
+        "text": "The client pushed back on implementation timeline.",
+        "claim_type": "client_concern",
+        "supports_needed_claim_ids": [
+          "need_claim_current_concern"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "tier": "strong",
+    "weak_points": []
+  }
+}
