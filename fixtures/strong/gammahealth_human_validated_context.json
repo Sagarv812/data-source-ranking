@@ -1,0 +1,96 @@
+{
+  "context_need": {
+    "id": "need_gammahealth_reengagement",
+    "client_id": "client_gammahealth",
+    "account_id": "account_gammahealth",
+    "opportunity_id": "opp_gammahealth_reengagement_2026",
+    "email_goal": "Prepare re-engagement context for GammaHealth outreach.",
+    "needed_claims": [
+      {
+        "id": "need_claim_current_concern",
+        "type": "current_client_concern",
+        "description": "Specific current concern that would make re-engagement relevant.",
+        "required": true
+      },
+      {
+        "id": "need_claim_likely_owner",
+        "type": "likely_account_owner",
+        "description": "Human owner who can validate clinical-operations context.",
+        "required": false
+      }
+    ],
+    "risk_tolerance": "normal"
+  },
+  "source": {
+    "id": "src_gammahealth_human_validated_context",
+    "type": "human_validated_context",
+    "title": "GammaHealth validated re-engagement context",
+    "summary": "Priya validated that GammaHealth's current priority is reducing manual intake review for regional clinic referrals before its autumn operations planning cycle.",
+    "client_id": "client_gammahealth",
+    "account_id": "account_gammahealth",
+    "opportunity_id": "opp_gammahealth_reengagement_2026",
+    "directness_relation": "same_client_same_opportunity",
+    "created_at": "2026-06-14",
+    "updated_at": "2026-06-15",
+    "author": {
+      "id": "user_priya",
+      "name": "Priya Shah",
+      "role": "account_owner",
+      "role_title": "Account Owner",
+      "email": "priya@example.com"
+    },
+    "owner_candidates": [
+      {
+        "id": "user_priya",
+        "name": "Priya Shah",
+        "role": "account_owner",
+        "role_title": "Account Owner",
+        "reason": "Account owner who directly validated the current re-engagement context.",
+        "confidence": 0.98
+      }
+    ],
+    "sensitivity_labels": [],
+    "source_system": "human",
+    "validation_history": [
+      {
+        "validated_by": {
+          "id": "user_priya",
+          "name": "Priya Shah",
+          "role": "account_owner",
+          "role_title": "Account Owner",
+          "email": "priya@example.com"
+        },
+        "validated_at": "2026-06-15",
+        "validated_claim_ids": [
+          "claim_gammahealth_manual_intake_priority",
+          "claim_gammahealth_priya_owner"
+        ],
+        "outcome": "accepted",
+        "notes": "Validated after account review with current owner."
+      }
+    ],
+    "claims": [
+      {
+        "id": "claim_gammahealth_manual_intake_priority",
+        "text": "GammaHealth's current priority is reducing manual intake review for regional clinic referrals before autumn operations planning.",
+        "claim_type": "client_concern",
+        "supports_needed_claim_ids": [
+          "need_claim_current_concern"
+        ]
+      },
+      {
+        "id": "claim_gammahealth_priya_owner",
+        "text": "Priya Shah is the likely account owner for validating GammaHealth re-engagement context.",
+        "claim_type": "owner_signal",
+        "supports_needed_claim_ids": [
+          "need_claim_likely_owner"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "tier": "strong",
+    "weak_points": []
+  }
+}
+

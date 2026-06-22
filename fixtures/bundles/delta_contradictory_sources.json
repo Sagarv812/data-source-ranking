@@ -1,0 +1,41 @@
+{
+  "id": "bundle_delta_contradictory_sources",
+  "title": "DeltaBank contradictory sources",
+  "context_need": {
+    "id": "need_deltabank_risk_workshop",
+    "client_id": "client_deltabank",
+    "account_id": "account_deltabank",
+    "opportunity_id": "opp_deltabank_risk_workshop_2026",
+    "email_goal": "Prepare context for a follow-up email after DeltaBank risk workshop discovery.",
+    "needed_claims": [
+      {
+        "id": "need_claim_current_concern",
+        "type": "current_client_concern",
+        "description": "Specific current concern raised by DeltaBank stakeholders.",
+        "required": true
+      },
+      {
+        "id": "need_claim_next_step",
+        "type": "next_step",
+        "description": "Agreed follow-up from the discovery meeting.",
+        "required": true
+      }
+    ],
+    "risk_tolerance": "normal"
+  },
+  "source_refs": [
+    "fixtures/strong/deltabank_recent_meeting_notes_clear_attendees.json",
+    "fixtures/weak/deltabank_unverified_partner_material.json"
+  ],
+  "expected": {
+    "decision": "needs_user_review",
+    "weak_points": [
+      "contradiction",
+      "sensitive_source"
+    ]
+  },
+  "metadata": {
+    "story": "Recent meeting notes are useful, but partner-channel material introduces a sensitive, unvalidated banking-compliance claim that should force focused review before use."
+  }
+}
+

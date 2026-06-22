@@ -1,0 +1,80 @@
+{
+  "context_need": {
+    "id": "need_betaworks_expansion",
+    "client_id": "client_betaworks",
+    "account_id": "account_betaworks",
+    "opportunity_id": "opp_betaworks_expansion_2026",
+    "email_goal": "Prepare context for BetaWorks expansion outreach.",
+    "needed_claims": [
+      {
+        "id": "need_claim_prior_work",
+        "type": "validated_prior_work",
+        "description": "Prior work that can be referenced in expansion messaging.",
+        "required": true
+      },
+      {
+        "id": "need_claim_current_concern",
+        "type": "current_client_concern",
+        "description": "Current concern or buying priority for the expansion conversation.",
+        "required": true
+      }
+    ],
+    "risk_tolerance": "normal"
+  },
+  "source": {
+    "id": "src_betaworks_old_proposal_with_owner",
+    "type": "proposal",
+    "title": "BetaWorks workflow automation proposal",
+    "summary": "Proposal from the 2025 pilot described a phased rollout for support-ticket triage and noted that BetaWorks wanted minimal disruption to its customer success team.",
+    "client_id": "client_betaworks",
+    "account_id": "account_betaworks",
+    "opportunity_id": "opp_betaworks_pilot_2025",
+    "directness_relation": "same_client_adjacent_opportunity",
+    "created_at": "2025-02-10",
+    "updated_at": "2025-03-01",
+    "author": {
+      "id": "user_lina",
+      "name": "Lina Rao",
+      "role": "proposal_owner",
+      "role_title": "Proposal Owner",
+      "email": "lina@example.com"
+    },
+    "owner_candidates": [
+      {
+        "id": "user_lina",
+        "name": "Lina Rao",
+        "role": "proposal_owner",
+        "role_title": "Proposal Owner",
+        "reason": "Proposal owner for the 2025 pilot proposal.",
+        "confidence": 0.88
+      }
+    ],
+    "sensitivity_labels": [],
+    "source_system": "drive",
+    "claims": [
+      {
+        "id": "claim_betaworks_prior_pilot",
+        "text": "BetaWorks previously evaluated a phased rollout for support-ticket triage automation.",
+        "claim_type": "prior_work",
+        "supports_needed_claim_ids": [
+          "need_claim_prior_work"
+        ]
+      },
+      {
+        "id": "claim_betaworks_disruption_concern",
+        "text": "BetaWorks wanted minimal disruption to the customer success team during rollout.",
+        "claim_type": "implementation_risk",
+        "supports_needed_claim_ids": [
+          "need_claim_current_concern"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "tier": "medium",
+    "weak_points": [
+      "stale_source"
+    ]
+  }
+}
+

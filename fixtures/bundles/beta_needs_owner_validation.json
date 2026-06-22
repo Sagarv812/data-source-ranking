@@ -1,0 +1,40 @@
+{
+  "id": "bundle_beta_needs_owner_validation",
+  "title": "BetaWorks needs owner validation",
+  "context_need": {
+    "id": "need_betaworks_expansion",
+    "client_id": "client_betaworks",
+    "account_id": "account_betaworks",
+    "opportunity_id": "opp_betaworks_expansion_2026",
+    "email_goal": "Prepare context for BetaWorks expansion outreach.",
+    "needed_claims": [
+      {
+        "id": "need_claim_prior_work",
+        "type": "validated_prior_work",
+        "description": "Prior work that can be referenced in expansion messaging.",
+        "required": true
+      },
+      {
+        "id": "need_claim_current_concern",
+        "type": "current_client_concern",
+        "description": "Current concern or buying priority for the expansion conversation.",
+        "required": true
+      }
+    ],
+    "risk_tolerance": "normal"
+  },
+  "source_refs": [
+    "fixtures/medium/betaworks_old_proposal_with_owner.json",
+    "fixtures/weak/betaworks_stale_account_context.json"
+  ],
+  "expected": {
+    "decision": "generate_context_request",
+    "weak_points": [
+      "stale_source"
+    ]
+  },
+  "metadata": {
+    "story": "Useful BetaWorks proposal evidence exists, but the best source is stale and should be validated with the proposal owner before automation."
+  }
+}
+

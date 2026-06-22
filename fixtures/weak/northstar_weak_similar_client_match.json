@@ -1,0 +1,69 @@
+{
+  "context_need": {
+    "id": "need_northstar_transformation",
+    "client_id": "client_northstar",
+    "account_id": "account_northstar",
+    "opportunity_id": "opp_northstar_transformation_2026",
+    "email_goal": "Prepare account handoff context for Northstar transformation program follow-up.",
+    "needed_claims": [
+      {
+        "id": "need_claim_similar_client_context",
+        "type": "similar_client_context",
+        "description": "Relevant similar-client example that can be used only as directional context.",
+        "required": false
+      }
+    ],
+    "risk_tolerance": "normal"
+  },
+  "source": {
+    "id": "src_northstar_weak_similar_client_match",
+    "type": "flowcase_match",
+    "title": "Logistics back-office automation case",
+    "summary": "A logistics client used automation to improve back-office routing. The match is based only on generic operations keywords.",
+    "client_id": "client_freightlane",
+    "account_id": "account_freightlane",
+    "opportunity_id": "opp_freightlane_backoffice_2025",
+    "directness_relation": "similar_client",
+    "similar_to_client_id": "client_northstar",
+    "similarity_reason": "Weak keyword-only match on operations automation; different industry and different workflow.",
+    "created_at": "2025-11-05",
+    "updated_at": "2025-11-20",
+    "author": {
+      "id": "user_lina",
+      "name": "Lina Rao",
+      "role": "proposal_owner",
+      "role_title": "Proposal Owner",
+      "email": "lina@example.com"
+    },
+    "owner_candidates": [
+      {
+        "id": "user_lina",
+        "name": "Lina Rao",
+        "role": "proposal_owner",
+        "role_title": "Proposal Owner",
+        "reason": "Proposal owner for the matched case study.",
+        "confidence": 0.7
+      }
+    ],
+    "sensitivity_labels": [],
+    "source_system": "flowcase",
+    "claims": [
+      {
+        "id": "claim_northstar_weak_directional_automation",
+        "text": "A different client used automation to improve back-office routing.",
+        "claim_type": "similar_client_context",
+        "supports_needed_claim_ids": [
+          "need_claim_similar_client_context"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "tier": "weak",
+    "weak_points": [
+      "low_directness",
+      "vague_claim"
+    ]
+  }
+}
+

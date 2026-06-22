@@ -1,0 +1,81 @@
+{
+  "context_need": {
+    "id": "need_gammahealth_reengagement",
+    "client_id": "client_gammahealth",
+    "account_id": "account_gammahealth",
+    "opportunity_id": "opp_gammahealth_reengagement_2026",
+    "email_goal": "Prepare re-engagement context for GammaHealth outreach.",
+    "needed_claims": [
+      {
+        "id": "need_claim_current_concern",
+        "type": "current_client_concern",
+        "description": "Specific current concern that would make re-engagement relevant.",
+        "required": true
+      },
+      {
+        "id": "need_claim_likely_owner",
+        "type": "likely_account_owner",
+        "description": "Human owner who can validate clinical-operations context.",
+        "required": false
+      }
+    ],
+    "risk_tolerance": "normal"
+  },
+  "source": {
+    "id": "src_gammahealth_useful_document_unclear_owner",
+    "type": "deck",
+    "title": "GammaHealth referral intake workflow notes",
+    "summary": "Internal discovery document describes manual referral intake review as a bottleneck for regional clinics, especially when operations managers need to reconcile duplicate patient intake forms.",
+    "client_id": "client_gammahealth",
+    "account_id": "account_gammahealth",
+    "opportunity_id": "opp_gammahealth_reengagement_2026",
+    "directness_relation": "same_client_same_opportunity",
+    "created_at": "2026-05-30",
+    "updated_at": "2026-06-03",
+    "owner_candidates": [
+      {
+        "id": "user_priya",
+        "name": "Priya Shah",
+        "role": "account_owner",
+        "role_title": "Account Owner",
+        "reason": "Current account owner, but not listed as the document author.",
+        "confidence": 0.62
+      },
+      {
+        "id": "user_jordan",
+        "name": "Jordan Lee",
+        "role": "meeting_attendee",
+        "role_title": "Solutions Consultant",
+        "reason": "Likely contributor based on related discovery meetings.",
+        "confidence": 0.58
+      }
+    ],
+    "sensitivity_labels": [],
+    "source_system": "drive",
+    "claims": [
+      {
+        "id": "claim_gammahealth_referral_intake_bottleneck",
+        "text": "Manual referral intake review is a bottleneck for GammaHealth regional clinics.",
+        "claim_type": "client_concern",
+        "supports_needed_claim_ids": [
+          "need_claim_current_concern"
+        ]
+      },
+      {
+        "id": "claim_gammahealth_duplicate_intake_forms",
+        "text": "Operations managers need to reconcile duplicate patient intake forms during referral review.",
+        "claim_type": "implementation_risk",
+        "supports_needed_claim_ids": [
+          "need_claim_current_concern"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "tier": "medium",
+    "weak_points": [
+      "unclear_owner"
+    ]
+  }
+}
+

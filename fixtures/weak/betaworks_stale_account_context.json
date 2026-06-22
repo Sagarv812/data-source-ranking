@@ -1,0 +1,66 @@
+{
+  "context_need": {
+    "id": "need_betaworks_expansion",
+    "client_id": "client_betaworks",
+    "account_id": "account_betaworks",
+    "opportunity_id": "opp_betaworks_expansion_2026",
+    "email_goal": "Prepare context for BetaWorks expansion outreach.",
+    "needed_claims": [
+      {
+        "id": "need_claim_current_concern",
+        "type": "current_client_concern",
+        "description": "Current concern or buying priority for the expansion conversation.",
+        "required": true
+      }
+    ],
+    "risk_tolerance": "normal"
+  },
+  "source": {
+    "id": "src_betaworks_stale_account_context",
+    "type": "crm_note",
+    "title": "BetaWorks account planning note",
+    "summary": "Account planning note from 2023 says BetaWorks was focused on cost reduction and vendor consolidation.",
+    "client_id": "client_betaworks",
+    "account_id": "account_betaworks",
+    "directness_relation": "same_account_group",
+    "created_at": "2023-09-14",
+    "updated_at": "2023-09-20",
+    "author": {
+      "id": "user_priya",
+      "name": "Priya Shah",
+      "role": "account_owner",
+      "role_title": "Account Owner",
+      "email": "priya@example.com"
+    },
+    "owner_candidates": [
+      {
+        "id": "user_priya",
+        "name": "Priya Shah",
+        "role": "account_owner",
+        "role_title": "Account Owner",
+        "reason": "Author of the old account planning note.",
+        "confidence": 0.72
+      }
+    ],
+    "sensitivity_labels": [],
+    "source_system": "salesforce",
+    "claims": [
+      {
+        "id": "claim_betaworks_old_cost_reduction_focus",
+        "text": "BetaWorks was focused on cost reduction and vendor consolidation.",
+        "claim_type": "program_signal",
+        "supports_needed_claim_ids": [
+          "need_claim_current_concern"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "tier": "weak",
+    "weak_points": [
+      "stale_source",
+      "low_directness"
+    ]
+  }
+}
+

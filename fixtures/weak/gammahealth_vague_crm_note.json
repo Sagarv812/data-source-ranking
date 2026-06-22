@@ -1,0 +1,66 @@
+{
+  "context_need": {
+    "id": "need_gammahealth_reengagement",
+    "client_id": "client_gammahealth",
+    "account_id": "account_gammahealth",
+    "opportunity_id": "opp_gammahealth_reengagement_2026",
+    "email_goal": "Prepare re-engagement context for GammaHealth outreach.",
+    "needed_claims": [
+      {
+        "id": "need_claim_current_concern",
+        "type": "current_client_concern",
+        "description": "Specific current concern that would make re-engagement relevant.",
+        "required": true
+      }
+    ],
+    "risk_tolerance": "normal"
+  },
+  "source": {
+    "id": "src_gammahealth_vague_crm_note",
+    "type": "crm_note",
+    "title": "GammaHealth account note",
+    "summary": "Client interested in transformation.",
+    "client_id": "client_gammahealth",
+    "account_id": "account_gammahealth",
+    "opportunity_id": "opp_gammahealth_reengagement_2026",
+    "directness_relation": "same_client_same_opportunity",
+    "created_at": "2026-06-05",
+    "updated_at": "2026-06-05",
+    "author": {
+      "id": "user_mateo",
+      "name": "Mateo Chen",
+      "role": "opportunity_owner",
+      "role_title": "Opportunity Owner",
+      "email": "mateo@example.com"
+    },
+    "owner_candidates": [
+      {
+        "id": "user_mateo",
+        "name": "Mateo Chen",
+        "role": "opportunity_owner",
+        "role_title": "Opportunity Owner",
+        "reason": "Opportunity owner and author of the CRM note.",
+        "confidence": 0.86
+      }
+    ],
+    "sensitivity_labels": [],
+    "source_system": "salesforce",
+    "claims": [
+      {
+        "id": "claim_gammahealth_transformation_interest",
+        "text": "GammaHealth is interested in transformation.",
+        "claim_type": "program_signal",
+        "supports_needed_claim_ids": [
+          "need_claim_current_concern"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "tier": "weak",
+    "weak_points": [
+      "vague_claim"
+    ]
+  }
+}
+

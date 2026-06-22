@@ -22,7 +22,7 @@
     "risk_tolerance": "normal"
   },
   "source": {
-    "id": "src_acme_crm_note",
+    "id": "src_acme_recent_crm_note",
     "type": "crm_note",
     "title": "Acme renewal prep note",
     "summary": "Client pushed back on implementation timeline in the last QBR.",
@@ -67,3 +67,4 @@
     "weak_points": []
   }
 }
+

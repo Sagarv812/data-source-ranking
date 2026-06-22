@@ -1,0 +1,49 @@
+{
+  "context_need": {
+    "id": "need_gammahealth_reengagement",
+    "client_id": "client_gammahealth",
+    "account_id": "account_gammahealth",
+    "opportunity_id": "opp_gammahealth_reengagement_2026",
+    "email_goal": "Prepare re-engagement context for GammaHealth outreach.",
+    "needed_claims": [
+      {
+        "id": "need_claim_current_concern",
+        "type": "current_client_concern",
+        "description": "Specific current concern that would make re-engagement relevant.",
+        "required": true
+      }
+    ],
+    "risk_tolerance": "normal"
+  },
+  "source": {
+    "id": "src_gammahealth_old_generic_deck",
+    "type": "deck",
+    "title": "Healthcare transformation overview",
+    "summary": "Generic 2024 deck describing digital transformation trends for healthcare operations, including automation, analytics, and change management themes.",
+    "account_id": "account_gammahealth",
+    "directness_relation": "generic_industry",
+    "created_at": "2024-03-12",
+    "updated_at": "2024-04-01",
+    "sensitivity_labels": [],
+    "source_system": "drive",
+    "claims": [
+      {
+        "id": "claim_gammahealth_generic_transformation_theme",
+        "text": "Healthcare organizations are interested in digital transformation.",
+        "claim_type": "program_signal",
+        "supports_needed_claim_ids": [
+          "need_claim_current_concern"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "tier": "weak",
+    "weak_points": [
+      "stale_source",
+      "vague_claim",
+      "low_directness"
+    ]
+  }
+}
+

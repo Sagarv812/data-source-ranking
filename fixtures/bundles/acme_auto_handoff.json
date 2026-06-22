@@ -1,0 +1,39 @@
+{
+  "id": "bundle_acme_auto_handoff",
+  "title": "Acme auto handoff",
+  "context_need": {
+    "id": "need_acme_renewal",
+    "client_id": "client_acme",
+    "account_id": "account_acme",
+    "opportunity_id": "opp_acme_renewal_2026",
+    "email_goal": "Prepare account handoff before renewal pitch.",
+    "needed_claims": [
+      {
+        "id": "need_claim_current_concern",
+        "type": "current_client_concern",
+        "description": "Current client concern that should shape renewal messaging.",
+        "required": true
+      },
+      {
+        "id": "need_claim_next_step",
+        "type": "next_step",
+        "description": "Concrete next step from recent client conversation.",
+        "required": false
+      }
+    ],
+    "risk_tolerance": "normal"
+  },
+  "source_refs": [
+    "fixtures/strong/acme_recent_crm_note.json",
+    "fixtures/strong/acme_recent_meeting_notes_clear_attendees.json",
+    "fixtures/medium/acme_same_client_adjacent_work.json"
+  ],
+  "expected": {
+    "decision": "auto_handoff",
+    "weak_points": []
+  },
+  "metadata": {
+    "story": "Recent CRM and meeting evidence agree that Acme cares about implementation timeline risk. Older adjacent work provides background but should not be required for the handoff."
+  }
+}
+

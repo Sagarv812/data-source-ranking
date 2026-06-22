@@ -1,0 +1,36 @@
+{
+  "id": "bundle_gamma_blocked",
+  "title": "GammaHealth blocked",
+  "context_need": {
+    "id": "need_gammahealth_reengagement",
+    "client_id": "client_gammahealth",
+    "account_id": "account_gammahealth",
+    "opportunity_id": "opp_gammahealth_reengagement_2026",
+    "email_goal": "Prepare re-engagement context for GammaHealth outreach.",
+    "needed_claims": [
+      {
+        "id": "need_claim_current_concern",
+        "type": "current_client_concern",
+        "description": "Specific current concern that would make re-engagement relevant.",
+        "required": true
+      }
+    ],
+    "risk_tolerance": "normal"
+  },
+  "source_refs": [
+    "fixtures/weak/gammahealth_vague_crm_note.json",
+    "fixtures/weak/gammahealth_old_generic_deck.json"
+  ],
+  "expected": {
+    "decision": "blocked",
+    "weak_points": [
+      "vague_claim",
+      "stale_source",
+      "low_directness"
+    ]
+  },
+  "metadata": {
+    "story": "GammaHealth only has vague or generic stale evidence, so the system should not automate re-engagement context."
+  }
+}
+

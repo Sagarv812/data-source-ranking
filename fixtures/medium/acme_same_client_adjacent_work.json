@@ -1,0 +1,98 @@
+{
+  "context_need": {
+    "id": "need_acme_renewal",
+    "client_id": "client_acme",
+    "account_id": "account_acme",
+    "opportunity_id": "opp_acme_renewal_2026",
+    "email_goal": "Prepare account handoff before renewal pitch.",
+    "needed_claims": [
+      {
+        "id": "need_claim_current_concern",
+        "type": "current_client_concern",
+        "description": "Current client concern that should shape renewal messaging.",
+        "required": true
+      },
+      {
+        "id": "need_claim_implementation_risk",
+        "type": "implementation_risk",
+        "description": "Implementation risk that may still matter for renewal planning.",
+        "required": false
+      }
+    ],
+    "risk_tolerance": "normal"
+  },
+  "source": {
+    "id": "src_acme_same_client_adjacent_work",
+    "type": "meeting_notes",
+    "title": "Acme implementation review notes",
+    "summary": "Prior implementation review noted that Acme wanted clearer rollout ownership between plant operations and IT before expanding automation to additional facilities.",
+    "client_id": "client_acme",
+    "account_id": "account_acme",
+    "opportunity_id": "opp_acme_implementation_review_2025",
+    "directness_relation": "same_client_adjacent_opportunity",
+    "created_at": "2025-08-12",
+    "updated_at": "2025-08-14",
+    "author": {
+      "id": "user_jordan",
+      "name": "Jordan Lee",
+      "role": "meeting_attendee",
+      "role_title": "Solutions Consultant",
+      "email": "jordan@example.com"
+    },
+    "owner_candidates": [
+      {
+        "id": "user_jordan",
+        "name": "Jordan Lee",
+        "role": "meeting_attendee",
+        "role_title": "Solutions Consultant",
+        "reason": "Solutions consultant who captured the prior implementation review notes.",
+        "confidence": 0.82
+      },
+      {
+        "id": "user_priya",
+        "name": "Priya Shah",
+        "role": "account_owner",
+        "role_title": "Account Owner",
+        "reason": "Current account owner for Acme renewal context.",
+        "confidence": 0.8
+      }
+    ],
+    "attendees": [
+      {
+        "id": "user_jordan",
+        "name": "Jordan Lee",
+        "role": "meeting_attendee",
+        "role_title": "Solutions Consultant",
+        "email": "jordan@example.com"
+      },
+      {
+        "id": "user_priya",
+        "name": "Priya Shah",
+        "role": "account_owner",
+        "role_title": "Account Owner",
+        "email": "priya@example.com"
+      }
+    ],
+    "sensitivity_labels": [],
+    "source_system": "calendar",
+    "claims": [
+      {
+        "id": "claim_acme_rollout_ownership_gap",
+        "text": "Acme wanted clearer rollout ownership between plant operations and IT before expanding automation to additional facilities.",
+        "claim_type": "implementation_risk",
+        "supports_needed_claim_ids": [
+          "need_claim_current_concern",
+          "need_claim_implementation_risk"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "tier": "medium",
+    "weak_points": [
+      "low_directness",
+      "stale_source"
+    ]
+  }
+}
+

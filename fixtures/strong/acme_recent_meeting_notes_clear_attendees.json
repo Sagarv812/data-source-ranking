@@ -1,0 +1,102 @@
+{
+  "context_need": {
+    "id": "need_acme_renewal",
+    "client_id": "client_acme",
+    "account_id": "account_acme",
+    "opportunity_id": "opp_acme_renewal_2026",
+    "email_goal": "Prepare account handoff before renewal pitch.",
+    "needed_claims": [
+      {
+        "id": "need_claim_current_concern",
+        "type": "current_client_concern",
+        "description": "Current client concern that should shape renewal messaging.",
+        "required": true
+      },
+      {
+        "id": "need_claim_next_step",
+        "type": "next_step",
+        "description": "Concrete next step from recent client conversation.",
+        "required": false
+      }
+    ],
+    "risk_tolerance": "normal"
+  },
+  "source": {
+    "id": "src_acme_recent_meeting_notes_clear_attendees",
+    "type": "meeting_notes",
+    "title": "Acme QBR renewal follow-up notes",
+    "summary": "QBR follow-up notes confirm Acme wants the renewal plan to address implementation timeline risk before expanding automation to two additional facilities. Priya and Jordan agreed to prepare a timeline-risk mitigation summary for the renewal pitch.",
+    "client_id": "client_acme",
+    "account_id": "account_acme",
+    "opportunity_id": "opp_acme_renewal_2026",
+    "directness_relation": "same_client_same_opportunity",
+    "created_at": "2026-06-13",
+    "updated_at": "2026-06-13",
+    "author": {
+      "id": "user_jordan",
+      "name": "Jordan Lee",
+      "role": "meeting_attendee",
+      "role_title": "Solutions Consultant",
+      "email": "jordan@example.com"
+    },
+    "owner_candidates": [
+      {
+        "id": "user_jordan",
+        "name": "Jordan Lee",
+        "role": "meeting_attendee",
+        "role_title": "Solutions Consultant",
+        "reason": "Solutions consultant who attended and wrote the QBR follow-up notes.",
+        "confidence": 0.9
+      },
+      {
+        "id": "user_priya",
+        "name": "Priya Shah",
+        "role": "account_owner",
+        "role_title": "Account Owner",
+        "reason": "Account owner for Acme renewal and attendee on the QBR follow-up.",
+        "confidence": 0.92
+      }
+    ],
+    "attendees": [
+      {
+        "id": "user_priya",
+        "name": "Priya Shah",
+        "role": "account_owner",
+        "role_title": "Account Owner",
+        "email": "priya@example.com"
+      },
+      {
+        "id": "user_jordan",
+        "name": "Jordan Lee",
+        "role": "meeting_attendee",
+        "role_title": "Solutions Consultant",
+        "email": "jordan@example.com"
+      }
+    ],
+    "sensitivity_labels": [],
+    "source_system": "calendar",
+    "claims": [
+      {
+        "id": "claim_acme_meeting_timeline_risk",
+        "text": "Acme wants the renewal plan to address implementation timeline risk before expanding automation to two additional facilities.",
+        "claim_type": "implementation_risk",
+        "supports_needed_claim_ids": [
+          "need_claim_current_concern"
+        ]
+      },
+      {
+        "id": "claim_acme_timeline_mitigation_next_step",
+        "text": "Priya and Jordan agreed to prepare a timeline-risk mitigation summary for the renewal pitch.",
+        "claim_type": "next_step",
+        "supports_needed_claim_ids": [
+          "need_claim_next_step"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "tier": "strong",
+    "weak_points": []
+  }
+}
+

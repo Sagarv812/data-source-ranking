@@ -25,10 +25,10 @@ from data_source_ranking.models import (
 
 
 def test_load_source_fixture_from_json() -> None:
-    fixture = load_source_fixture(Path("fixtures/day1/sample_source_fixture.json"))
+    fixture = load_source_fixture(Path("fixtures/strong/acme_recent_crm_note.json"))
 
     assert fixture.context_need.id == "need_acme_renewal"
-    assert fixture.source.id == "src_acme_crm_note"
+    assert fixture.source.id == "src_acme_recent_crm_note"
     assert fixture.source.type is SourceType.CRM_NOTE
     assert fixture.source.directness_relation is DirectnessRelation.SAME_CLIENT_SAME_OPPORTUNITY
     assert fixture.source.author is not None

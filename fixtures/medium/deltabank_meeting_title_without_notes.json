@@ -1,0 +1,80 @@
+{
+  "context_need": {
+    "id": "need_deltabank_risk_workshop",
+    "client_id": "client_deltabank",
+    "account_id": "account_deltabank",
+    "opportunity_id": "opp_deltabank_risk_workshop_2026",
+    "email_goal": "Prepare context for a follow-up email after DeltaBank risk workshop discovery.",
+    "needed_claims": [
+      {
+        "id": "need_claim_current_concern",
+        "type": "current_client_concern",
+        "description": "Specific current concern raised by DeltaBank stakeholders.",
+        "required": true
+      },
+      {
+        "id": "need_claim_next_step",
+        "type": "next_step",
+        "description": "Agreed follow-up from the discovery meeting.",
+        "required": true
+      }
+    ],
+    "risk_tolerance": "normal"
+  },
+  "source": {
+    "id": "src_deltabank_meeting_title_without_notes",
+    "type": "meeting_event",
+    "title": "Risk workflow automation follow-up",
+    "summary": "Calendar event only. No meeting notes or transcript were attached.",
+    "client_id": "client_deltabank",
+    "account_id": "account_deltabank",
+    "opportunity_id": "opp_deltabank_risk_workshop_2026",
+    "directness_relation": "same_client_same_opportunity",
+    "created_at": "2026-06-18",
+    "updated_at": "2026-06-18",
+    "owner_candidates": [
+      {
+        "id": "user_mateo",
+        "name": "Mateo Chen",
+        "role": "opportunity_owner",
+        "role_title": "Opportunity Owner",
+        "reason": "Opportunity owner associated with the calendar event.",
+        "confidence": 0.78
+      },
+      {
+        "id": "user_jordan",
+        "name": "Jordan Lee",
+        "role": "meeting_attendee",
+        "role_title": "Solutions Consultant",
+        "reason": "Internal attendee on the meeting invite.",
+        "confidence": 0.74
+      }
+    ],
+    "attendees": [
+      {
+        "id": "user_mateo",
+        "name": "Mateo Chen",
+        "role": "opportunity_owner",
+        "role_title": "Opportunity Owner",
+        "email": "mateo@example.com"
+      },
+      {
+        "id": "user_jordan",
+        "name": "Jordan Lee",
+        "role": "meeting_attendee",
+        "role_title": "Solutions Consultant",
+        "email": "jordan@example.com"
+      }
+    ],
+    "sensitivity_labels": [],
+    "source_system": "calendar",
+    "claims": []
+  },
+  "expected": {
+    "tier": "medium",
+    "weak_points": [
+      "incomplete_context"
+    ]
+  }
+}
+

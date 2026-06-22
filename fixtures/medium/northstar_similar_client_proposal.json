@@ -1,0 +1,75 @@
+{
+  "context_need": {
+    "id": "need_northstar_transformation",
+    "client_id": "client_northstar",
+    "account_id": "account_northstar",
+    "opportunity_id": "opp_northstar_transformation_2026",
+    "email_goal": "Prepare account handoff context for Northstar transformation program follow-up.",
+    "needed_claims": [
+      {
+        "id": "need_claim_similar_client_context",
+        "type": "similar_client_context",
+        "description": "Relevant similar-client example that can be used only as directional context.",
+        "required": false
+      },
+      {
+        "id": "need_claim_implementation_risk",
+        "type": "implementation_risk",
+        "description": "Implementation lesson that may help phrase risk carefully.",
+        "required": false
+      }
+    ],
+    "risk_tolerance": "normal"
+  },
+  "source": {
+    "id": "src_northstar_similar_client_proposal",
+    "type": "proposal",
+    "title": "Retail rollout proposal for HarborMart",
+    "summary": "A similar retail client used a phased region-by-region launch to reduce store-manager retraining risk during workflow automation rollout.",
+    "client_id": "client_harbormart",
+    "account_id": "account_harbormart",
+    "opportunity_id": "opp_harbormart_store_ops_2026",
+    "directness_relation": "similar_client",
+    "similar_to_client_id": "client_northstar",
+    "similarity_reason": "Both are multi-region retail operators evaluating store-operations workflow automation.",
+    "created_at": "2026-04-20",
+    "updated_at": "2026-05-02",
+    "author": {
+      "id": "user_lina",
+      "name": "Lina Rao",
+      "role": "proposal_owner",
+      "role_title": "Proposal Owner",
+      "email": "lina@example.com"
+    },
+    "owner_candidates": [
+      {
+        "id": "user_lina",
+        "name": "Lina Rao",
+        "role": "proposal_owner",
+        "role_title": "Proposal Owner",
+        "reason": "Proposal owner for the similar retail rollout proposal.",
+        "confidence": 0.86
+      }
+    ],
+    "sensitivity_labels": [],
+    "source_system": "drive",
+    "claims": [
+      {
+        "id": "claim_northstar_directional_retail_rollout",
+        "text": "A similar retail client used a phased region-by-region launch to reduce store-manager retraining risk.",
+        "claim_type": "similar_client_context",
+        "supports_needed_claim_ids": [
+          "need_claim_similar_client_context",
+          "need_claim_implementation_risk"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "tier": "medium",
+    "weak_points": [
+      "low_directness"
+    ]
+  }
+}
+

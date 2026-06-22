@@ -1,0 +1,68 @@
+{
+  "context_need": {
+    "id": "need_deltabank_risk_workshop",
+    "client_id": "client_deltabank",
+    "account_id": "account_deltabank",
+    "opportunity_id": "opp_deltabank_risk_workshop_2026",
+    "email_goal": "Prepare context for a follow-up email after DeltaBank risk workshop discovery.",
+    "needed_claims": [
+      {
+        "id": "need_claim_current_concern",
+        "type": "current_client_concern",
+        "description": "Specific current concern raised by DeltaBank stakeholders.",
+        "required": true
+      }
+    ],
+    "risk_tolerance": "normal"
+  },
+  "source": {
+    "id": "src_deltabank_unverified_partner_material",
+    "type": "partner_material",
+    "title": "Partner banking compliance automation brief",
+    "summary": "Partner-channel brief claims regional banks improved compliance handoff speed with a similar automation pattern, but it does not name DeltaBank or include validation from the account team.",
+    "directness_relation": "generic_industry",
+    "created_at": "2026-02-18",
+    "updated_at": "2026-03-01",
+    "author": {
+      "id": "user_avery",
+      "name": "Avery Brooks",
+      "role": "partner_contact",
+      "role_title": "Partner Contact",
+      "email": "avery@example.com"
+    },
+    "owner_candidates": [
+      {
+        "id": "user_avery",
+        "name": "Avery Brooks",
+        "role": "partner_contact",
+        "role_title": "Partner Contact",
+        "reason": "Partner contact attached to the source material, not a DeltaBank owner.",
+        "confidence": 0.55
+      }
+    ],
+    "sensitivity_labels": [
+      "partner_channel",
+      "internal_only"
+    ],
+    "source_system": "partner_portal",
+    "claims": [
+      {
+        "id": "claim_deltabank_partner_compliance_pattern",
+        "text": "Regional banks improved compliance handoff speed with a similar automation pattern.",
+        "claim_type": "similar_client_context",
+        "supports_needed_claim_ids": [
+          "need_claim_current_concern"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "tier": "weak",
+    "weak_points": [
+      "sensitive_source",
+      "low_authority",
+      "low_directness"
+    ]
+  }
+}
+

@@ -1,0 +1,96 @@
+{
+  "context_need": {
+    "id": "need_northstar_transformation",
+    "client_id": "client_northstar",
+    "account_id": "account_northstar",
+    "opportunity_id": "opp_northstar_transformation_2026",
+    "email_goal": "Prepare account handoff context for Northstar transformation program follow-up.",
+    "needed_claims": [
+      {
+        "id": "need_claim_validated_prior_work",
+        "type": "validated_prior_work",
+        "description": "Approved proposal outcome or prior work that can be referenced.",
+        "required": true
+      },
+      {
+        "id": "need_claim_decision_feedback",
+        "type": "decision_feedback",
+        "description": "Buyer feedback that explains what mattered in the final decision.",
+        "required": true
+      }
+    ],
+    "risk_tolerance": "normal"
+  },
+  "source": {
+    "id": "src_northstar_final_proposal_with_feedback",
+    "type": "proposal",
+    "title": "Northstar store operations transformation final proposal",
+    "summary": "Final proposal and decision feedback show that Northstar selected the phased rollout option because it reduced store-manager retraining risk and gave regional teams a controlled launch plan.",
+    "client_id": "client_northstar",
+    "account_id": "account_northstar",
+    "opportunity_id": "opp_northstar_transformation_2026",
+    "directness_relation": "same_client_same_opportunity",
+    "created_at": "2026-05-28",
+    "updated_at": "2026-06-04",
+    "author": {
+      "id": "user_lina",
+      "name": "Lina Rao",
+      "role": "proposal_owner",
+      "role_title": "Proposal Owner",
+      "email": "lina@example.com"
+    },
+    "owner_candidates": [
+      {
+        "id": "user_lina",
+        "name": "Lina Rao",
+        "role": "proposal_owner",
+        "role_title": "Proposal Owner",
+        "reason": "Proposal owner for the final submitted proposal and decision-feedback notes.",
+        "confidence": 0.93
+      }
+    ],
+    "sensitivity_labels": [],
+    "source_system": "drive",
+    "validation_history": [
+      {
+        "validated_by": {
+          "id": "user_lina",
+          "name": "Lina Rao",
+          "role": "proposal_owner",
+          "role_title": "Proposal Owner",
+          "email": "lina@example.com"
+        },
+        "validated_at": "2026-06-06",
+        "validated_claim_ids": [
+          "claim_northstar_selected_phased_rollout",
+          "claim_northstar_retraining_risk_feedback"
+        ],
+        "outcome": "accepted",
+        "notes": "Decision feedback was added after buyer debrief."
+      }
+    ],
+    "claims": [
+      {
+        "id": "claim_northstar_selected_phased_rollout",
+        "text": "Northstar selected the phased rollout option for its store operations transformation program.",
+        "claim_type": "prior_work",
+        "supports_needed_claim_ids": [
+          "need_claim_validated_prior_work"
+        ]
+      },
+      {
+        "id": "claim_northstar_retraining_risk_feedback",
+        "text": "Northstar valued the proposal because it reduced store-manager retraining risk and gave regional teams a controlled launch plan.",
+        "claim_type": "decision_feedback",
+        "supports_needed_claim_ids": [
+          "need_claim_decision_feedback"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "tier": "strong",
+    "weak_points": []
+  }
+}
+

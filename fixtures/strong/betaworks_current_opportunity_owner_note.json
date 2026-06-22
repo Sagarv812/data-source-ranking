@@ -1,0 +1,86 @@
+{
+  "context_need": {
+    "id": "need_betaworks_expansion",
+    "client_id": "client_betaworks",
+    "account_id": "account_betaworks",
+    "opportunity_id": "opp_betaworks_expansion_2026",
+    "email_goal": "Prepare context for BetaWorks expansion outreach.",
+    "needed_claims": [
+      {
+        "id": "need_claim_current_concern",
+        "type": "current_client_concern",
+        "description": "Current concern or buying priority for the expansion conversation.",
+        "required": true
+      },
+      {
+        "id": "need_claim_next_step",
+        "type": "next_step",
+        "description": "Concrete next step requested by the client.",
+        "required": true
+      }
+    ],
+    "risk_tolerance": "normal"
+  },
+  "source": {
+    "id": "src_betaworks_current_opportunity_owner_note",
+    "type": "salesforce_opportunity_note",
+    "title": "BetaWorks expansion qualification note",
+    "summary": "Mateo confirmed that BetaWorks wants to expand the pilot into customer-success escalation routing before Q3 planning. The main concern is avoiding disruption to existing support workflows.",
+    "client_id": "client_betaworks",
+    "account_id": "account_betaworks",
+    "opportunity_id": "opp_betaworks_expansion_2026",
+    "directness_relation": "same_client_same_opportunity",
+    "created_at": "2026-06-17",
+    "updated_at": "2026-06-18",
+    "author": {
+      "id": "user_mateo",
+      "name": "Mateo Chen",
+      "role": "opportunity_owner",
+      "role_title": "Opportunity Owner",
+      "email": "mateo@example.com"
+    },
+    "owner_candidates": [
+      {
+        "id": "user_mateo",
+        "name": "Mateo Chen",
+        "role": "opportunity_owner",
+        "role_title": "Opportunity Owner",
+        "reason": "Current opportunity owner and author of the qualification note.",
+        "confidence": 0.96
+      }
+    ],
+    "sensitivity_labels": [],
+    "source_system": "salesforce",
+    "claims": [
+      {
+        "id": "claim_betaworks_expansion_priority",
+        "text": "BetaWorks wants to expand the pilot into customer-success escalation routing before Q3 planning.",
+        "claim_type": "program_signal",
+        "supports_needed_claim_ids": [
+          "need_claim_current_concern"
+        ]
+      },
+      {
+        "id": "claim_betaworks_workflow_disruption_concern",
+        "text": "BetaWorks is concerned about disrupting existing support workflows during rollout.",
+        "claim_type": "implementation_risk",
+        "supports_needed_claim_ids": [
+          "need_claim_current_concern"
+        ]
+      },
+      {
+        "id": "claim_betaworks_next_step_q3_workshop",
+        "text": "The next step is to propose a Q3 planning workshop around escalation routing.",
+        "claim_type": "next_step",
+        "supports_needed_claim_ids": [
+          "need_claim_next_step"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "tier": "strong",
+    "weak_points": []
+  }
+}
+

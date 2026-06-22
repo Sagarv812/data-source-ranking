@@ -290,3 +290,12 @@ class SourceBundle(StrictModel):
     sources: list[Source] = Field(min_length=1)
     expected: ExpectedOutcome | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class SourceBundleFixture(StrictModel):
+    id: str
+    title: str
+    context_need: ContextNeed
+    source_refs: list[str] = Field(min_length=1)
+    expected: ExpectedOutcome | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)

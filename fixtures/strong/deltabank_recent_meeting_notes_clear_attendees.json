@@ -1,0 +1,102 @@
+{
+  "context_need": {
+    "id": "need_deltabank_risk_workshop",
+    "client_id": "client_deltabank",
+    "account_id": "account_deltabank",
+    "opportunity_id": "opp_deltabank_risk_workshop_2026",
+    "email_goal": "Prepare context for a follow-up email after DeltaBank risk workshop discovery.",
+    "needed_claims": [
+      {
+        "id": "need_claim_current_concern",
+        "type": "current_client_concern",
+        "description": "Specific current concern raised by DeltaBank stakeholders.",
+        "required": true
+      },
+      {
+        "id": "need_claim_next_step",
+        "type": "next_step",
+        "description": "Agreed follow-up from the discovery meeting.",
+        "required": true
+      }
+    ],
+    "risk_tolerance": "normal"
+  },
+  "source": {
+    "id": "src_deltabank_recent_meeting_notes_clear_attendees",
+    "type": "meeting_notes",
+    "title": "DeltaBank risk automation discovery notes",
+    "summary": "Discovery notes from June 19 captured that DeltaBank wants better exception visibility before automating credit-review handoffs. The agreed next step is a compliance-safe workflow map review with risk operations.",
+    "client_id": "client_deltabank",
+    "account_id": "account_deltabank",
+    "opportunity_id": "opp_deltabank_risk_workshop_2026",
+    "directness_relation": "same_client_same_opportunity",
+    "created_at": "2026-06-19",
+    "updated_at": "2026-06-19",
+    "author": {
+      "id": "user_jordan",
+      "name": "Jordan Lee",
+      "role": "meeting_attendee",
+      "role_title": "Solutions Consultant",
+      "email": "jordan@example.com"
+    },
+    "owner_candidates": [
+      {
+        "id": "user_jordan",
+        "name": "Jordan Lee",
+        "role": "meeting_attendee",
+        "role_title": "Solutions Consultant",
+        "reason": "Solutions consultant who attended and wrote the discovery notes.",
+        "confidence": 0.9
+      },
+      {
+        "id": "user_mateo",
+        "name": "Mateo Chen",
+        "role": "opportunity_owner",
+        "role_title": "Opportunity Owner",
+        "reason": "Opportunity owner listed on the DeltaBank risk workshop opportunity.",
+        "confidence": 0.84
+      }
+    ],
+    "attendees": [
+      {
+        "id": "user_jordan",
+        "name": "Jordan Lee",
+        "role": "meeting_attendee",
+        "role_title": "Solutions Consultant",
+        "email": "jordan@example.com"
+      },
+      {
+        "id": "user_mateo",
+        "name": "Mateo Chen",
+        "role": "opportunity_owner",
+        "role_title": "Opportunity Owner",
+        "email": "mateo@example.com"
+      }
+    ],
+    "sensitivity_labels": [],
+    "source_system": "calendar",
+    "claims": [
+      {
+        "id": "claim_deltabank_exception_visibility",
+        "text": "DeltaBank wants better exception visibility before automating credit-review handoffs.",
+        "claim_type": "client_concern",
+        "supports_needed_claim_ids": [
+          "need_claim_current_concern"
+        ]
+      },
+      {
+        "id": "claim_deltabank_workflow_map_next_step",
+        "text": "The agreed next step is a compliance-safe workflow map review with risk operations.",
+        "claim_type": "next_step",
+        "supports_needed_claim_ids": [
+          "need_claim_next_step"
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "tier": "strong",
+    "weak_points": []
+  }
+}
+
