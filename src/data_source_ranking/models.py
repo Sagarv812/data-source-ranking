@@ -113,6 +113,7 @@ class WeakPointType(StrEnum):
     INCOMPLETE_CONTEXT = "incomplete_context"
     LOW_AUTHORITY = "low_authority"
     LOW_CORROBORATION = "low_corroboration"
+    LOW_HISTORICAL_RELIABILITY = "low_historical_reliability"
     UNSUPPORTED_INFERENCE = "unsupported_inference"
     CONTRADICTION = "contradiction"
     OTHER = "other"
@@ -266,6 +267,15 @@ class RankedSource(StrictModel):
     source_id: str
     tier: Tier
     scores: dict[str, DimensionScore]
+    reasons: list[str] = Field(default_factory=list)
+    weak_points: list[WeakPoint] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class RankedBundle(StrictModel):
+    id: str
+    decision: DecisionType
+    ranked_sources: list[RankedSource] = Field(min_length=1)
     reasons: list[str] = Field(default_factory=list)
     weak_points: list[WeakPoint] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
