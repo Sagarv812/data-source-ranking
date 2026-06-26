@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from data_source_ranking.loader import (
+    FixtureLoadError,
     is_bundle_fixture,
     load_source_bundle,
     load_source_bundle_fixture,
@@ -86,6 +87,86 @@ def test_bundle_refs_resolve_to_sources(path: Path) -> None:
 def test_bundle_fixture_detection_uses_json_shape() -> None:
     assert is_bundle_fixture("fixtures/bundles/acme_auto_handoff.json")
     assert not is_bundle_fixture("fixtures/strong/acme_recent_crm_note.json")
+
+
+def test_malformed_json_raises_fixture_load_error(tmp_path: Path) -> None:
+    fixture_path = tmp_path / "broken.json"
+    fixture_path.write_text("{not valid json", encoding="utf-8")
+
+    with pytest.raises(FixtureLoadError, match="invalid JSON"):
+        load_source_fixture(fixture_path)
+
+
+def test_missing_required_source_fields_raise_fixture_load_error(tmp_path: Path) -> None:
+    fixture_path = tmp_path / "missing_source_fields.json"
+    fixture_path.write_text(
+        """
+        {
+          "context_need": {
+            "id": "need_test",
+            "client_id": "client_test",
+            "email_goal": "Prepare context.",
+            "needed_claims": [
+              {
+                "id": "need_claim_current_concern",
+                "type": "current_client_concern",
+                "description": "Current client concern."
+              }
+            ]
+          },
+          "source": {
+            "id": "src_missing_title",
+            "type": "crm_note",
+            "summary": "Client raised timeline risk."
+          }
+        }
+        """,
+        encoding="utf-8",
+    )
+
+    with pytest.raises(FixtureLoadError, match="invalid fixture"):
+        load_source_fixture(fixture_path)
+
+
+def test_broken_bundle_source_ref_raises_fixture_load_error(tmp_path: Path) -> None:
+    bundle_path = tmp_path / "bundle_with_broken_ref.json"
+    bundle_path.write_text(
+        """
+        {
+          "id": "bundle_broken",
+          "title": "Broken bundle",
+          "context_need": {
+            "id": "need_test",
+            "client_id": "client_test",
+            "email_goal": "Prepare context.",
+            "needed_claims": [
+              {
+                "id": "need_claim_current_concern",
+                "type": "current_client_concern",
+                "description": "Current client concern."
+              }
+            ]
+          },
+          "source_refs": [
+            "fixtures/strong/does_not_exist.json"
+          ]
+        }
+        """,
+        encoding="utf-8",
+    )
+
+    with pytest.raises(FixtureLoadError, match="does not exist"):
+        load_source_bundle(bundle_path)
+
+
+def test_source_fixture_loaded_as_bundle_raises_fixture_load_error() -> None:
+    with pytest.raises(FixtureLoadError, match="invalid fixture"):
+        load_source_bundle("fixtures/strong/acme_recent_crm_note.json")
+
+
+def test_bundle_fixture_loaded_as_source_raises_fixture_load_error() -> None:
+    with pytest.raises(FixtureLoadError, match="invalid fixture"):
+        load_source_fixture("fixtures/bundles/acme_auto_handoff.json")
 
 
 def test_bundle_refs_resolve_from_absolute_path_outside_repo_root(
