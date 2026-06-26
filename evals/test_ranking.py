@@ -72,7 +72,7 @@ def test_rank_bundle_flags_sensitive_conflict_for_review() -> None:
 
     assert ranked.decision is DecisionType.NEEDS_USER_REVIEW
     assert {point.type for point in ranked.weak_points} >= {
-        WeakPointType.CONTRADICTION,
+        WeakPointType.SENSITIVE_EVIDENCE_OVERLAP,
         WeakPointType.SENSITIVE_SOURCE,
     }
 

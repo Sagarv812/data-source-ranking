@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from data_source_ranking.loader import (
+    is_bundle_fixture,
     load_source_bundle,
     load_source_bundle_fixture,
     load_source_fixture,
@@ -80,6 +81,23 @@ def test_bundle_refs_resolve_to_sources(path: Path) -> None:
 
     assert len(bundle.sources) == len(bundle_fixture.source_refs)
     assert {source.id for source in bundle.sources}
+
+
+def test_bundle_fixture_detection_uses_json_shape() -> None:
+    assert is_bundle_fixture("fixtures/bundles/acme_auto_handoff.json")
+    assert not is_bundle_fixture("fixtures/strong/acme_recent_crm_note.json")
+
+
+def test_bundle_refs_resolve_from_absolute_path_outside_repo_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bundle_path = Path("fixtures/bundles/acme_auto_handoff.json").resolve()
+    monkeypatch.chdir(tmp_path)
+
+    bundle = load_source_bundle(bundle_path)
+
+    assert {source.id for source in bundle.sources} >= {"src_acme_recent_crm_note"}
 
 
 @pytest.mark.parametrize("path", scenario_paths(), ids=str)

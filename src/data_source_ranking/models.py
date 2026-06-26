@@ -116,6 +116,7 @@ class WeakPointType(StrEnum):
     LOW_HISTORICAL_RELIABILITY = "low_historical_reliability"
     UNSUPPORTED_INFERENCE = "unsupported_inference"
     CONTRADICTION = "contradiction"
+    SENSITIVE_EVIDENCE_OVERLAP = "sensitive_evidence_overlap"
     OTHER = "other"
 
 

@@ -46,7 +46,7 @@ fixtures/weak/
 fixtures/bundles/
 ```
 
-Use strength folders for single-source scenarios. Use `bundles/` for multi-source scenarios where corroboration, contradiction, owner resolution, or automation decisions will eventually be tested.
+Use strength folders for single-source scenarios. Use `bundles/` for multi-source scenarios where corroboration, sensitive evidence overlap, owner resolution, or automation decisions will eventually be tested.
 
 ## Fictional Clients
 
@@ -55,7 +55,7 @@ Use strength folders for single-source scenarios. Use `bundles/` for multi-sourc
 | `client_acme` | Acme Robotics | manufacturing / robotics | renewal pitch, implementation-risk concerns, auto-handoff bundle |
 | `client_betaworks` | BetaWorks Software | B2B SaaS | expansion opportunities, old proposal validation, current-owner notes |
 | `client_gammahealth` | GammaHealth | healthcare operations | re-engagement outreach, human-validated context, vague/stale context contrasts |
-| `client_deltabank` | DeltaBank | financial services | risk-workshop context, meeting evidence, contradictions and sensitivity risk |
+| `client_deltabank` | DeltaBank | financial services | risk-workshop context, meeting evidence, sensitive partner evidence, review risk |
 | `client_northstar` | Northstar Retail | retail operations | final proposal feedback, similar-client references, directional examples |
 
 ## Fictional People

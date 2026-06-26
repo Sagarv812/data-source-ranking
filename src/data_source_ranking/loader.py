@@ -54,6 +54,11 @@ def load_source_bundle_fixture(path: str | Path) -> SourceBundleFixture:
     return _validate_fixture(Path(path), SourceBundleFixture)
 
 
+def is_bundle_fixture(path: str | Path) -> bool:
+    data = _load_json(Path(path))
+    return "source_refs" in data
+
+
 def _resolve_source_ref(bundle_path: Path, source_ref: str) -> Path:
     source_path = Path(source_ref)
     if source_path.is_absolute() or source_path.exists():
@@ -63,4 +68,19 @@ def _resolve_source_ref(bundle_path: Path, source_ref: str) -> Path:
     if relative_to_bundle.exists():
         return relative_to_bundle
 
+    relative_to_fixture_root = _relative_to_fixture_root(bundle_path, source_path)
+    if relative_to_fixture_root and relative_to_fixture_root.exists():
+        return relative_to_fixture_root
+
     raise FixtureLoadError(f"source ref {source_ref!r} from bundle {bundle_path} does not exist")
+
+
+def _relative_to_fixture_root(bundle_path: Path, source_path: Path) -> Path | None:
+    bundle_path = bundle_path.resolve()
+    fixture_root = next(
+        (parent for parent in bundle_path.parents if parent.name == "fixtures"),
+        None,
+    )
+    if fixture_root is None or source_path.parts[0] != "fixtures":
+        return None
+    return fixture_root.parent / source_path

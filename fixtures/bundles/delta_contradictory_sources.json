@@ -30,7 +30,7 @@
   "expected": {
     "decision": "needs_user_review",
     "weak_points": [
-      "contradiction",
+      "sensitive_evidence_overlap",
       "sensitive_source"
     ]
   },
@@ -38,4 +38,3 @@
     "story": "Recent meeting notes are useful, but partner-channel material introduces a sensitive, unvalidated banking-compliance claim that should force focused review before use."
   }
 }
-

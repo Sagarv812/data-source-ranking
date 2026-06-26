@@ -76,6 +76,7 @@ def rank_source(
         metadata={
             "tier_status": "assigned",
             "tier_policy": "rule_based_v1",
+            "tier_scope": "source_evidence_strength",
             "tier_reason": tier_reason,
             "scored_dimensions": sorted(dimension.value for dimension in scores),
         },
@@ -337,7 +338,7 @@ def _review_weak_points(
     return _unique_weak_points(
         [
             WeakPoint(
-                type=WeakPointType.CONTRADICTION,
+                type=WeakPointType.SENSITIVE_EVIDENCE_OVERLAP,
                 message="Sensitive weak evidence overlaps with usable evidence for the same need.",
                 severity="high",
                 metadata={
