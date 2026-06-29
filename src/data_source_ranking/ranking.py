@@ -78,6 +78,7 @@ def rank_source(
             "tier_policy": "rule_based_v1",
             "tier_scope": "source_evidence_strength",
             "tier_reason": tier_reason,
+            "source_type": source.type.value,
             "scored_dimensions": sorted(dimension.value for dimension in scores),
         },
     )

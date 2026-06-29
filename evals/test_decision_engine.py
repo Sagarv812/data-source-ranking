@@ -70,6 +70,9 @@ def test_decide_returns_user_review_decision() -> None:
     assert decision.decision is DecisionType.NEEDS_USER_REVIEW
     assert decision.confidence.label is DecisionConfidenceLabel.MEDIUM
     assert decision.next_action.type is NextActionType.ASK_USER
+    assert decision.approval_prompt is not None
+    assert decision.approval_prompt.issue_type == "sensitive_evidence_overlap"
+    assert decision.next_action.question == decision.approval_prompt.question
     assert decision.selected_sources == ["src_deltabank_recent_meeting_notes_clear_attendees"]
     assert {claim.needed_claim_id for claim in decision.selected_claims} == {
         "need_claim_current_concern",
@@ -120,14 +123,8 @@ def test_decide_requests_context_for_meeting_title_without_notes() -> None:
     )
 
 
-def test_decide_reviews_similar_client_directional_source() -> None:
-    fixture = load_source_fixture("fixtures/medium/northstar_similar_client_proposal.json")
-    bundle = SourceBundle(
-        id="bundle_northstar_similar_client_probe",
-        title="Northstar similar client probe",
-        context_need=fixture.context_need,
-        sources=[fixture.source],
-    )
+def test_decide_reviews_unsupported_claim() -> None:
+    bundle = load_source_bundle("fixtures/bundles/acme_unsupported_claim_review.json")
 
     decision = decide(bundle)
     gates = {gate.gate: gate for gate in decision.policy_gates}
@@ -135,6 +132,66 @@ def test_decide_reviews_similar_client_directional_source() -> None:
     assert decision.decision is DecisionType.NEEDS_USER_REVIEW
     assert decision.next_action.type is NextActionType.ASK_USER
     assert decision.context_request is None
+    assert decision.approval_prompt is not None
+    assert decision.approval_prompt.issue_type == "unsupported_claim"
+    assert decision.next_action.question == decision.approval_prompt.question
+    assert decision.selected_sources == ["src_acme_same_client_adjacent_work"]
+    assert gates["unsupported_inference_absent"].status is PolicyGateStatus.TRIGGERED
+    assert gates["unsupported_inference_absent"].effect is PolicyGateEffect.REQUIRES_USER_REVIEW
+
+
+def test_decide_reviews_sensitive_partner_material_without_overlap() -> None:
+    bundle = load_source_bundle(
+        "fixtures/bundles/deltabank_sensitive_partner_material_review.json"
+    )
+
+    decision = decide(bundle)
+    gates = {gate.gate: gate for gate in decision.policy_gates}
+
+    assert decision.decision is DecisionType.NEEDS_USER_REVIEW
+    assert decision.next_action.type is NextActionType.ASK_USER
+    assert decision.approval_prompt is not None
+    assert decision.approval_prompt.issue_type == "sensitive_partner_material"
+    assert decision.next_action.question == decision.approval_prompt.question
+    assert decision.selected_sources == ["src_deltabank_recent_meeting_notes_clear_attendees"]
+    assert {claim.needed_claim_id for claim in decision.selected_claims} == {
+        "need_claim_next_step"
+    }
+    assert gates["sensitivity_allows_automation"].status is PolicyGateStatus.TRIGGERED
+    assert gates["sensitive_evidence_overlap_absent"].status is PolicyGateStatus.PASSED
+
+
+def test_decide_reviews_old_proposal_when_strong_required_coverage_exists() -> None:
+    bundle = load_source_bundle("fixtures/bundles/betaworks_old_proposal_review.json")
+
+    decision = decide(bundle)
+    gates = {gate.gate: gate for gate in decision.policy_gates}
+
+    assert decision.decision is DecisionType.NEEDS_USER_REVIEW
+    assert decision.next_action.type is NextActionType.ASK_USER
+    assert decision.context_request is None
+    assert decision.approval_prompt is not None
+    assert decision.approval_prompt.issue_type == "old_proposal"
+    assert decision.next_action.question == decision.approval_prompt.question
+    assert decision.selected_sources == [
+        "src_betaworks_current_opportunity_owner_note",
+        "src_betaworks_old_proposal_with_owner",
+    ]
+    assert gates["old_proposal_review_absent"].status is PolicyGateStatus.TRIGGERED
+    assert gates["stale_unvalidated_source_absent"].status is PolicyGateStatus.PASSED
+
+
+def test_decide_reviews_similar_client_directional_source() -> None:
+    bundle = load_source_bundle("fixtures/bundles/northstar_similar_client_review.json")
+
+    decision = decide(bundle)
+    gates = {gate.gate: gate for gate in decision.policy_gates}
+
+    assert decision.decision is DecisionType.NEEDS_USER_REVIEW
+    assert decision.next_action.type is NextActionType.ASK_USER
+    assert decision.context_request is None
+    assert decision.approval_prompt is not None
+    assert decision.next_action.question == decision.approval_prompt.question
     assert decision.selected_sources == ["src_northstar_similar_client_proposal"]
     assert gates["directional_context_review_absent"].status is PolicyGateStatus.TRIGGERED
     assert gates["directional_context_review_absent"].effect is (
@@ -143,13 +200,7 @@ def test_decide_reviews_similar_client_directional_source() -> None:
 
 
 def test_decide_reviews_useful_document_with_unclear_owner() -> None:
-    fixture = load_source_fixture("fixtures/medium/gammahealth_useful_document_unclear_owner.json")
-    bundle = SourceBundle(
-        id="bundle_gammahealth_unclear_owner_probe",
-        title="GammaHealth unclear owner probe",
-        context_need=fixture.context_need,
-        sources=[fixture.source],
-    )
+    bundle = load_source_bundle("fixtures/bundles/gammahealth_unclear_owner_review.json")
 
     decision = decide(bundle)
     gates = {gate.gate: gate for gate in decision.policy_gates}
@@ -157,6 +208,8 @@ def test_decide_reviews_useful_document_with_unclear_owner() -> None:
     assert decision.decision is DecisionType.NEEDS_USER_REVIEW
     assert decision.next_action.type is NextActionType.ASK_USER
     assert decision.context_request is None
+    assert decision.approval_prompt is not None
+    assert decision.next_action.question == decision.approval_prompt.question
     assert decision.selected_sources == ["src_gammahealth_useful_document_unclear_owner"]
     assert gates["owner_signal_available"].status is PolicyGateStatus.TRIGGERED
     assert gates["owner_signal_available"].effect is PolicyGateEffect.REQUIRES_USER_REVIEW

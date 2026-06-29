@@ -92,9 +92,14 @@ Bundle fixtures combine scattered sources around one context need and exercise t
 | Fixture | Expected Decision | What It Proves |
 | --- | --- | --- |
 | `fixtures/bundles/acme_auto_handoff.json` | `auto_handoff` | Strong recent CRM and meeting evidence can safely cover the required handoff context. |
+| `fixtures/bundles/acme_unsupported_claim_review.json` | `needs_user_review` | Usable adjacent context is present, but an unsupported inferred claim overlaps that need and should force focused review. |
+| `fixtures/bundles/betaworks_old_proposal_review.json` | `auto_handoff` | Evidence-layer output is safe on required claims; policy gates escalate because optional old proposal context needs validation, historical labeling, or skipping. |
 | `fixtures/bundles/beta_needs_owner_validation.json` | `generate_context_request` | Useful but older BetaWorks evidence should ask for owner validation before automation. |
 | `fixtures/bundles/delta_contradictory_sources.json` | `needs_user_review` | Sensitive partner-channel evidence overlapping with usable evidence should force review. |
+| `fixtures/bundles/deltabank_sensitive_partner_material_review.json` | `auto_handoff` | Evidence-layer output is safe on required claims; policy gates escalate because optional partner material is sensitive. |
 | `fixtures/bundles/gamma_blocked.json` | `blocked` | Vague or stale weak evidence should block automation when no usable source covers the required need. |
+| `fixtures/bundles/gammahealth_unclear_owner_review.json` | `generate_context_request` | Evidence-layer output is usable-but-owner-ambiguous; policy gates escalate the final automation decision to unclear-owner review. |
+| `fixtures/bundles/northstar_similar_client_review.json` | `generate_context_request` | Evidence-layer output is usable-but-not-strong; policy gates escalate the final automation decision to similar-client review. |
 
 ## Fictional Clients
 

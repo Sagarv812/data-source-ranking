@@ -46,6 +46,7 @@ def test_policy_gates_surface_context_request_requirements() -> None:
     assert gates["stale_unvalidated_source_absent"].effect is (
         PolicyGateEffect.REQUIRES_CONTEXT_REQUEST
     )
+    assert gates["old_proposal_review_absent"].status is PolicyGateStatus.PASSED
     assert gates["stale_unvalidated_source_absent"].source_ids == [
         "src_betaworks_old_proposal_with_owner",
         "src_betaworks_stale_account_context",
@@ -72,6 +73,33 @@ def test_policy_gates_surface_sensitive_review_requirements() -> None:
     assert gates["sensitive_evidence_overlap_absent"].needed_claim_ids == [
         "need_claim_current_concern"
     ]
+
+
+def test_policy_gates_surface_sensitive_source_without_overlap() -> None:
+    gates = gates_for("fixtures/bundles/deltabank_sensitive_partner_material_review.json")
+
+    assert gates["required_claims_have_usable_coverage"].status is PolicyGateStatus.PASSED
+    assert gates["required_claims_have_strong_coverage"].status is PolicyGateStatus.PASSED
+    assert gates["sensitivity_allows_automation"].status is PolicyGateStatus.TRIGGERED
+    assert gates["sensitivity_allows_automation"].effect is (
+        PolicyGateEffect.PREVENTS_AUTO_HANDOFF
+    )
+    assert gates["sensitivity_allows_automation"].source_ids == [
+        "src_deltabank_unverified_partner_material"
+    ]
+    assert gates["sensitive_evidence_overlap_absent"].status is PolicyGateStatus.PASSED
+
+
+def test_policy_gates_surface_old_proposal_review_when_strong_coverage_exists() -> None:
+    gates = gates_for("fixtures/bundles/betaworks_old_proposal_review.json")
+
+    assert gates["required_claims_have_strong_coverage"].status is PolicyGateStatus.PASSED
+    assert gates["old_proposal_review_absent"].status is PolicyGateStatus.TRIGGERED
+    assert gates["old_proposal_review_absent"].effect is PolicyGateEffect.REQUIRES_USER_REVIEW
+    assert gates["old_proposal_review_absent"].source_ids == [
+        "src_betaworks_old_proposal_with_owner"
+    ]
+    assert gates["stale_unvalidated_source_absent"].status is PolicyGateStatus.PASSED
 
 
 def test_policy_gates_surface_blocking_requirements() -> None:
@@ -165,6 +193,7 @@ def test_policy_gates_are_json_serializable(path: str) -> None:
 
     assert {gate["gate"] for gate in payload} == {
         "directional_context_review_absent",
+        "old_proposal_review_absent",
         "owner_signal_available",
         "required_claims_have_strong_coverage",
         "required_claims_have_usable_coverage",

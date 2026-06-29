@@ -56,6 +56,90 @@ def test_decide_command_prints_readable_summary() -> None:
     assert "Policy gates:" in result.stdout
 
 
+def test_decide_command_prints_approval_prompt() -> None:
+    result = runner.invoke(
+        app,
+        ["decide", "fixtures/bundles/northstar_similar_client_review.json"],
+    )
+
+    assert result.exit_code == 0
+    assert "Decision: needs_user_review" in result.stdout
+    assert "Approval prompt:" in result.stdout
+    assert "similar_client_directional_context" in result.stdout
+    assert "recommended: use_directional_with_label" in result.stdout
+    assert "Use as directional" in result.stdout
+
+
+def test_decide_command_prints_unclear_owner_approval_prompt() -> None:
+    result = runner.invoke(
+        app,
+        ["decide", "fixtures/bundles/gammahealth_unclear_owner_review.json"],
+    )
+
+    assert result.exit_code == 0
+    assert "Decision: needs_user_review" in result.stdout
+    assert "Approval prompt:" in result.stdout
+    assert "unclear_owner" in result.stdout
+    assert "recommended: choose_owner" in result.stdout
+    assert "Use carefully" in result.stdout
+
+
+def test_decide_command_prints_sensitive_overlap_approval_prompt() -> None:
+    result = runner.invoke(
+        app,
+        ["decide", "fixtures/bundles/delta_contradictory_sources.json"],
+    )
+
+    assert result.exit_code == 0
+    assert "Decision: needs_user_review" in result.stdout
+    assert "Approval prompt:" in result.stdout
+    assert "sensitive_evidence_overlap" in result.stdout
+    assert "recommended: exclude_sensitive_source" in result.stdout
+    assert "Exclude sensitive source" in result.stdout
+
+
+def test_decide_command_prints_unsupported_claim_approval_prompt() -> None:
+    result = runner.invoke(
+        app,
+        ["decide", "fixtures/bundles/acme_unsupported_claim_review.json"],
+    )
+
+    assert result.exit_code == 0
+    assert "Decision: needs_user_review" in result.stdout
+    assert "Approval prompt:" in result.stdout
+    assert "unsupported_claim" in result.stdout
+    assert "recommended: remove_claim" in result.stdout
+    assert "Use cautiously" in result.stdout
+
+
+def test_decide_command_prints_sensitive_partner_material_approval_prompt() -> None:
+    result = runner.invoke(
+        app,
+        ["decide", "fixtures/bundles/deltabank_sensitive_partner_material_review.json"],
+    )
+
+    assert result.exit_code == 0
+    assert "Decision: needs_user_review" in result.stdout
+    assert "Approval prompt:" in result.stdout
+    assert "sensitive_partner_material" in result.stdout
+    assert "recommended: request_validation" in result.stdout
+    assert "Exclude source" in result.stdout
+
+
+def test_decide_command_prints_old_proposal_approval_prompt() -> None:
+    result = runner.invoke(
+        app,
+        ["decide", "fixtures/bundles/betaworks_old_proposal_review.json"],
+    )
+
+    assert result.exit_code == 0
+    assert "Decision: needs_user_review" in result.stdout
+    assert "Approval prompt:" in result.stdout
+    assert "old_proposal" in result.stdout
+    assert "recommended: request_validation" in result.stdout
+    assert "Use as historical" in result.stdout
+
+
 def test_decide_command_can_print_json() -> None:
     result = runner.invoke(
         app,
@@ -69,6 +153,110 @@ def test_decide_command_can_print_json() -> None:
     assert payload["confidence"]["label"] == "high"
     assert payload["next_action"]["type"] == "prepare_handoff"
     assert payload["ranked_bundle"]["id"] == "bundle_acme_auto_handoff"
+
+
+def test_decide_command_json_includes_approval_prompt() -> None:
+    result = runner.invoke(
+        app,
+        ["decide", "fixtures/bundles/northstar_similar_client_review.json", "--json"],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    prompt = payload["approval_prompt"]
+    assert payload["decision"] == "needs_user_review"
+    assert prompt["issue_type"] == "similar_client_directional_context"
+    assert prompt["recommended_action"] == "use_directional_with_label"
+    assert prompt["choices"][0]["id"] == "use_directional_with_label"
+    assert payload["next_action"]["question"] == prompt["question"]
+
+
+def test_decide_command_json_includes_unclear_owner_prompt() -> None:
+    result = runner.invoke(
+        app,
+        ["decide", "fixtures/bundles/gammahealth_unclear_owner_review.json", "--json"],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    prompt = payload["approval_prompt"]
+    assert payload["decision"] == "needs_user_review"
+    assert prompt["issue_type"] == "unclear_owner"
+    assert prompt["recommended_action"] == "choose_owner"
+    assert prompt["choices"][1]["id"] == "use_without_owner"
+    assert prompt["choices"][1]["metadata"]["requires_user_acceptance"] is True
+
+
+def test_decide_command_json_includes_sensitive_overlap_prompt() -> None:
+    result = runner.invoke(
+        app,
+        ["decide", "fixtures/bundles/delta_contradictory_sources.json", "--json"],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    prompt = payload["approval_prompt"]
+    assert payload["decision"] == "needs_user_review"
+    assert prompt["issue_type"] == "sensitive_evidence_overlap"
+    assert prompt["recommended_action"] == "exclude_sensitive_source"
+    assert prompt["choices"][0]["id"] == "exclude_sensitive_source"
+    assert prompt["metadata"]["sensitive_source_ids"] == [
+        "src_deltabank_unverified_partner_material"
+    ]
+
+
+def test_decide_command_json_includes_unsupported_claim_prompt() -> None:
+    result = runner.invoke(
+        app,
+        ["decide", "fixtures/bundles/acme_unsupported_claim_review.json", "--json"],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    prompt = payload["approval_prompt"]
+    assert payload["decision"] == "needs_user_review"
+    assert prompt["issue_type"] == "unsupported_claim"
+    assert prompt["recommended_action"] == "remove_claim"
+    assert prompt["choices"][1]["id"] == "use_cautious_wording"
+    assert prompt["choices"][1]["metadata"]["risk"] == "unsupported_inference"
+
+
+def test_decide_command_json_includes_sensitive_partner_material_prompt() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "decide",
+            "fixtures/bundles/deltabank_sensitive_partner_material_review.json",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    prompt = payload["approval_prompt"]
+    assert payload["decision"] == "needs_user_review"
+    assert prompt["issue_type"] == "sensitive_partner_material"
+    assert prompt["recommended_action"] == "request_validation"
+    assert prompt["choices"][1]["id"] == "exclude_sensitive_source"
+    assert prompt["metadata"]["source_risks"]["src_deltabank_unverified_partner_material"][
+        "source_system"
+    ] == "partner_portal"
+
+
+def test_decide_command_json_includes_old_proposal_prompt() -> None:
+    result = runner.invoke(
+        app,
+        ["decide", "fixtures/bundles/betaworks_old_proposal_review.json", "--json"],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    prompt = payload["approval_prompt"]
+    assert payload["decision"] == "needs_user_review"
+    assert prompt["issue_type"] == "old_proposal"
+    assert prompt["recommended_action"] == "request_validation"
+    assert prompt["choices"][1]["id"] == "use_historical_context"
+    assert prompt["choices"][1]["metadata"]["risk"] == "stale_proposal"
 
 
 def test_rank_source_json_output_shape_is_stable() -> None:

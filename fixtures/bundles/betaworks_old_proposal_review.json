@@ -1,0 +1,37 @@
+{
+  "id": "bundle_betaworks_old_proposal_review",
+  "title": "BetaWorks old-proposal review",
+  "context_need": {
+    "id": "need_betaworks_expansion",
+    "client_id": "client_betaworks",
+    "account_id": "account_betaworks",
+    "opportunity_id": "opp_betaworks_expansion_2026",
+    "email_goal": "Prepare context for BetaWorks expansion outreach.",
+    "needed_claims": [
+      {
+        "id": "need_claim_current_concern",
+        "type": "current_client_concern",
+        "description": "Current concern or buying priority for the expansion conversation.",
+        "required": true
+      },
+      {
+        "id": "need_claim_prior_work",
+        "type": "validated_prior_work",
+        "description": "Prior work that can be referenced only as historical context unless validated.",
+        "required": false
+      }
+    ],
+    "risk_tolerance": "normal"
+  },
+  "source_refs": [
+    "fixtures/strong/betaworks_current_opportunity_owner_note.json",
+    "fixtures/medium/betaworks_old_proposal_with_owner.json"
+  ],
+  "expected": {
+    "decision": "auto_handoff",
+    "weak_points": []
+  },
+  "metadata": {
+    "story": "Current opportunity-owner evidence strongly covers the required concern, while the old proposal is useful optional historical context that needs validation, historical labeling, or skipping."
+  }
+}

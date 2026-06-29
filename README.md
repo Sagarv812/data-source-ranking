@@ -14,6 +14,7 @@ The current prototype supports:
 - nine scoring dimensions with reasons, labels, weak points, and metadata
 - context request generation for owner-validation cases
 - focused routing for similar-client and unclear-owner review cases
+- focused approval prompt generation for similar-client directional context, unclear-owner cases, sensitive evidence overlap, unsupported claims, sensitive partner material, and old proposals
 - synthetic fixture data for testing and demo runs
 - JSON output for future UI/API integration
 
@@ -105,9 +106,14 @@ Useful examples:
 
 ```bash
 data-source-ranking decide fixtures/bundles/acme_auto_handoff.json --as-of 2026-06-21
+data-source-ranking decide fixtures/bundles/acme_unsupported_claim_review.json --as-of 2026-06-21
 data-source-ranking decide fixtures/bundles/beta_needs_owner_validation.json --as-of 2026-06-21
+data-source-ranking decide fixtures/bundles/betaworks_old_proposal_review.json --as-of 2026-06-21
 data-source-ranking decide fixtures/bundles/delta_contradictory_sources.json --as-of 2026-06-21
+data-source-ranking decide fixtures/bundles/deltabank_sensitive_partner_material_review.json --as-of 2026-06-21
 data-source-ranking decide fixtures/bundles/gamma_blocked.json --as-of 2026-06-21
+data-source-ranking decide fixtures/bundles/gammahealth_unclear_owner_review.json --as-of 2026-06-21
+data-source-ranking decide fixtures/bundles/northstar_similar_client_review.json --as-of 2026-06-21
 ```
 
 Use `--json` when the output should be consumed by tests, a backend, or a future UI. Use `--as-of` to make freshness scoring explicit and repeatable. Use `--show-metadata` when readable output should include the supporting metadata.
@@ -127,6 +133,6 @@ python -m compileall src evals
 - Scoring and tiering are rule-based.
 - Historical reliability uses static defaults until real feedback history exists.
 - Semantic contradiction detection is not implemented yet; sensitive overlapping evidence is conservatively sent to review.
-- Focused approval prompts are modeled but not fully generated yet.
+- Focused approval prompts are currently generated for similar-client directional context, unclear-owner cases, sensitive evidence overlap, unsupported claims, sensitive partner material, and old proposals. True contradiction prompts are pending semantic contradiction detection.
 - Review-response handling is not implemented yet.
 - The polished presentation UI is planned later, after the ranking core is stable.

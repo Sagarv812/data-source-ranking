@@ -1,0 +1,36 @@
+{
+  "id": "bundle_northstar_similar_client_review",
+  "title": "Northstar similar-client review",
+  "context_need": {
+    "id": "need_northstar_transformation",
+    "client_id": "client_northstar",
+    "account_id": "account_northstar",
+    "opportunity_id": "opp_northstar_transformation_2026",
+    "email_goal": "Prepare account handoff context for Northstar transformation program follow-up.",
+    "needed_claims": [
+      {
+        "id": "need_claim_similar_client_context",
+        "type": "similar_client_context",
+        "description": "Relevant similar-client example that can be used only as directional context.",
+        "required": false
+      },
+      {
+        "id": "need_claim_implementation_risk",
+        "type": "implementation_risk",
+        "description": "Implementation lesson that may help phrase risk carefully.",
+        "required": false
+      }
+    ],
+    "risk_tolerance": "normal"
+  },
+  "source_refs": [
+    "fixtures/medium/northstar_similar_client_proposal.json"
+  ],
+  "expected": {
+    "decision": "generate_context_request",
+    "weak_points": []
+  },
+  "metadata": {
+    "story": "Useful similar-client proposal evidence should ask the user whether to use it only as labeled directional context or skip it."
+  }
+}

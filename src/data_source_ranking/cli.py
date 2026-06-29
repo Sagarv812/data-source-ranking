@@ -208,6 +208,12 @@ def _format_automation_decision(
                 "",
                 "Approval prompt:",
                 f"- {decision.approval_prompt.issue_type}: {decision.approval_prompt.question}",
+                f"  recommended: {decision.approval_prompt.recommended_action}",
+                "  choices:",
+                *[
+                    f"  - {choice.id}: {choice.label} ({choice.effect})"
+                    for choice in decision.approval_prompt.choices
+                ],
             ]
         )
     if decision.draft_handoff:

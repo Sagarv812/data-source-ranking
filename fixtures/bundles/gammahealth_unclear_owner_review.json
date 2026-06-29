@@ -1,0 +1,38 @@
+{
+  "id": "bundle_gammahealth_unclear_owner_review",
+  "title": "GammaHealth unclear-owner review",
+  "context_need": {
+    "id": "need_gammahealth_reengagement",
+    "client_id": "client_gammahealth",
+    "account_id": "account_gammahealth",
+    "opportunity_id": "opp_gammahealth_reengagement_2026",
+    "email_goal": "Prepare re-engagement context for GammaHealth outreach.",
+    "needed_claims": [
+      {
+        "id": "need_claim_current_concern",
+        "type": "current_client_concern",
+        "description": "Specific current concern that would make re-engagement relevant.",
+        "required": true
+      },
+      {
+        "id": "need_claim_likely_owner",
+        "type": "likely_account_owner",
+        "description": "Human owner who can validate clinical-operations context.",
+        "required": false
+      }
+    ],
+    "risk_tolerance": "normal"
+  },
+  "source_refs": [
+    "fixtures/medium/gammahealth_useful_document_unclear_owner.json"
+  ],
+  "expected": {
+    "decision": "generate_context_request",
+    "weak_points": [
+      "unclear_owner"
+    ]
+  },
+  "metadata": {
+    "story": "Useful GammaHealth evidence covers the needed concern, but owner signals are ambiguous enough that the current user should choose an owner, accept the risk, or skip the source."
+  }
+}

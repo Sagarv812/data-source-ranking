@@ -24,6 +24,7 @@ def evaluate_policy_gates(ranked_bundle: RankedBundle) -> list[PolicyGateResult]
         _sensitivity_allows_automation(ranked_bundle),
         _sensitive_evidence_overlap_absent(ranked_bundle),
         _directional_context_review_absent(ranked_bundle),
+        _old_proposal_review_absent(ranked_bundle),
         _stale_unvalidated_source_absent(ranked_bundle),
         _unsupported_inference_absent(ranked_bundle),
         _owner_signal_available(ranked_bundle),
@@ -162,6 +163,42 @@ def _directional_context_review_absent(ranked_bundle: RankedBundle) -> PolicyGat
     )
 
 
+def _old_proposal_review_absent(ranked_bundle: RankedBundle) -> PolicyGateResult:
+    if not _has_strong_coverage(ranked_bundle):
+        return PolicyGateResult(
+            gate="old_proposal_review_absent",
+            status=PolicyGateStatus.PASSED,
+            effect=PolicyGateEffect.INFORMATIONAL,
+            message="Old proposal review was not needed for strongly covered claims.",
+        )
+
+    weak_points = [
+        point
+        for ranked in ranked_bundle.ranked_sources
+        if ranked.metadata.get("source_type") == "proposal"
+        for point in ranked.weak_points
+        if point.type is WeakPointType.STALE_SOURCE
+    ]
+    if weak_points:
+        return PolicyGateResult(
+            gate="old_proposal_review_absent",
+            status=PolicyGateStatus.TRIGGERED,
+            effect=PolicyGateEffect.REQUIRES_USER_REVIEW,
+            message="Stale proposal context must be validated, labeled historical, or skipped.",
+            source_ids=_source_ids(weak_points),
+            metadata={
+                "weak_point_types": _weak_point_type_values(weak_points),
+                "max_age_days": _max_age_days(weak_points),
+            },
+        )
+    return PolicyGateResult(
+        gate="old_proposal_review_absent",
+        status=PolicyGateStatus.PASSED,
+        effect=PolicyGateEffect.INFORMATIONAL,
+        message="No stale proposal review was needed.",
+    )
+
+
 def _stale_unvalidated_source_absent(ranked_bundle: RankedBundle) -> PolicyGateResult:
     weak_points = _bundle_weak_points(ranked_bundle, {WeakPointType.STALE_SOURCE})
     if weak_points:
@@ -241,6 +278,12 @@ def _has_usable_coverage(ranked_bundle: RankedBundle) -> bool:
     target_ids = _metadata_ids(ranked_bundle, "target_needed_claim_ids")
     usable_ids = _metadata_ids(ranked_bundle, "usable_coverage")
     return bool(target_ids) and target_ids <= usable_ids
+
+
+def _has_strong_coverage(ranked_bundle: RankedBundle) -> bool:
+    target_ids = _metadata_ids(ranked_bundle, "target_needed_claim_ids")
+    strong_ids = _metadata_ids(ranked_bundle, "strong_coverage")
+    return bool(target_ids) and target_ids <= strong_ids
 
 
 def _has_recoverable_incomplete_source(ranked_bundle: RankedBundle) -> bool:

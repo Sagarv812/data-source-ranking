@@ -4,6 +4,7 @@ from datetime import date
 
 from data_source_ranking.context_requests import build_context_request
 from data_source_ranking.decisions import (
+    ApprovalPrompt,
     AutomationDecision,
     ContextRequest,
     DecisionAuditEvent,
@@ -27,6 +28,7 @@ from data_source_ranking.models import (
     Tier,
 )
 from data_source_ranking.policy import evaluate_policy_gates
+from data_source_ranking.prompts import build_approval_prompt
 from data_source_ranking.ranking import rank_bundle
 from data_source_ranking.scoring.common import DEFAULT_AS_OF
 
@@ -37,6 +39,7 @@ def decide(bundle: SourceBundle, as_of: date = DEFAULT_AS_OF) -> AutomationDecis
     decision = select_final_decision(policy_gates)
     selected_claims = _selected_claims(bundle, ranked_bundle, decision)
     context_request = build_context_request(bundle, ranked_bundle, decision=decision)
+    approval_prompt = build_approval_prompt(bundle, ranked_bundle, decision, policy_gates)
     selected_sources = _selected_source_ids(selected_claims, context_request, decision)
 
     return AutomationDecision(
@@ -50,7 +53,8 @@ def decide(bundle: SourceBundle, as_of: date = DEFAULT_AS_OF) -> AutomationDecis
         source_citations=_source_citations(bundle, selected_claims),
         weak_points=ranked_bundle.weak_points,
         policy_gates=policy_gates,
-        next_action=_next_action(decision, policy_gates, context_request),
+        next_action=_next_action(decision, policy_gates, context_request, approval_prompt),
+        approval_prompt=approval_prompt,
         context_request=context_request,
         draft_handoff=_draft_handoff(bundle, decision, selected_claims, selected_sources),
         audit_trace=_audit_trace(decision, ranked_bundle, policy_gates),
@@ -194,6 +198,7 @@ def _next_action(
     decision: DecisionType,
     policy_gates: list[PolicyGateResult],
     context_request: ContextRequest | None,
+    approval_prompt: ApprovalPrompt | None,
 ) -> NextAction:
     if decision is DecisionType.AUTO_HANDOFF:
         return NextAction(
@@ -212,12 +217,19 @@ def _next_action(
             metadata={"triggered_gates": _triggered_gate_names(policy_gates)},
         )
     if decision is DecisionType.NEEDS_USER_REVIEW:
+        metadata = {"triggered_gates": _triggered_gate_names(policy_gates)}
+        if approval_prompt:
+            metadata["approval_prompt_issue_type"] = approval_prompt.issue_type
         return NextAction(
             type=NextActionType.ASK_USER,
             label="Ask user to review",
             description="Ask the current user to resolve the review-triggering evidence issue.",
-            question="Should this evidence be used, validated, or excluded before automation?",
-            metadata={"triggered_gates": _triggered_gate_names(policy_gates)},
+            question=(
+                approval_prompt.question
+                if approval_prompt
+                else "Should this evidence be used, validated, or excluded before automation?"
+            ),
+            metadata=metadata,
         )
     return NextAction(
         type=NextActionType.STOP,

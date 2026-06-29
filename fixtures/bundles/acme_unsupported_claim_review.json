@@ -1,0 +1,34 @@
+{
+  "id": "bundle_acme_unsupported_claim_review",
+  "title": "Acme unsupported-claim review",
+  "context_need": {
+    "id": "need_acme_renewal",
+    "client_id": "client_acme",
+    "account_id": "account_acme",
+    "opportunity_id": "opp_acme_renewal_2026",
+    "email_goal": "Prepare account handoff before renewal pitch.",
+    "needed_claims": [
+      {
+        "id": "need_claim_implementation_risk",
+        "type": "implementation_risk",
+        "description": "Implementation risk that may still matter for renewal planning.",
+        "required": true
+      }
+    ],
+    "risk_tolerance": "normal"
+  },
+  "source_refs": [
+    "fixtures/medium/acme_same_client_adjacent_work.json",
+    "fixtures/weak/acme_unsupported_inferred_claim.json"
+  ],
+  "expected": {
+    "decision": "needs_user_review",
+    "weak_points": [
+      "sensitive_evidence_overlap",
+      "sensitive_source"
+    ]
+  },
+  "metadata": {
+    "story": "Adjacent Acme implementation notes provide usable risk context, but an inferred CRM claim states a risk that was not directly recorded and should require focused review."
+  }
+}
