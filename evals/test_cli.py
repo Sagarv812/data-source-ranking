@@ -44,6 +44,33 @@ def test_rank_bundle_command_can_print_json() -> None:
     assert payload["metadata"]["decision_policy"] == "rule_based_v1"
 
 
+def test_decide_command_prints_readable_summary() -> None:
+    result = runner.invoke(app, ["decide", "fixtures/bundles/beta_needs_owner_validation.json"])
+
+    assert result.exit_code == 0
+    assert "Bundle: bundle_beta_needs_owner_validation" in result.stdout
+    assert "Decision: generate_context_request" in result.stdout
+    assert "Confidence: 0.72 (medium)" in result.stdout
+    assert "Context request:" in result.stdout
+    assert "to: Lina Rao" in result.stdout
+    assert "Policy gates:" in result.stdout
+
+
+def test_decide_command_can_print_json() -> None:
+    result = runner.invoke(
+        app,
+        ["decide", "fixtures/bundles/acme_auto_handoff.json", "--json"],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["bundle_id"] == "bundle_acme_auto_handoff"
+    assert payload["decision"] == "auto_handoff"
+    assert payload["confidence"]["label"] == "high"
+    assert payload["next_action"]["type"] == "prepare_handoff"
+    assert payload["ranked_bundle"]["id"] == "bundle_acme_auto_handoff"
+
+
 def test_rank_source_json_output_shape_is_stable() -> None:
     result = runner.invoke(
         app,

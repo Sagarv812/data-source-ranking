@@ -7,6 +7,8 @@ from typing import Annotated, Any
 
 import typer
 
+from data_source_ranking.decision_engine import decide as decide_file
+from data_source_ranking.decisions import AutomationDecision
 from data_source_ranking.loader import (
     FixtureLoadError,
     is_bundle_fixture,
@@ -70,6 +72,28 @@ def rank_bundle(
     typer.echo(_format_ranked_bundle(ranked, show_metadata=show_metadata))
 
 
+@app.command("decide")
+def decide(
+    path: Annotated[Path, typer.Argument(exists=True, file_okay=True, dir_okay=False)],
+    as_json: Annotated[bool, typer.Option("--json", help="Print full result as JSON.")] = False,
+    show_metadata: Annotated[
+        bool,
+        typer.Option("--show-metadata", help="Include decision metadata in readable output."),
+    ] = False,
+    as_of: Annotated[
+        str,
+        typer.Option("--as-of", help="Evaluation date used for freshness scoring."),
+    ] = DEFAULT_AS_OF.isoformat(),
+) -> None:
+    bundle = load_source_bundle(path)
+    decision = decide_file(bundle, as_of=_parse_as_of(as_of))
+    if as_json:
+        _print_json(decision)
+        return
+
+    typer.echo(_format_automation_decision(decision, show_metadata=show_metadata))
+
+
 @app.command("validate-fixtures")
 def validate_fixtures(
     path: Annotated[Path, typer.Argument(exists=True, file_okay=True, dir_okay=True)],
@@ -106,7 +130,7 @@ def validate_fixtures(
     )
 
 
-def _print_json(result: RankedSource | RankedBundle) -> None:
+def _print_json(result: RankedSource | RankedBundle | AutomationDecision) -> None:
     typer.echo(json.dumps(result.model_dump(mode="json"), indent=2, sort_keys=True))
 
 
@@ -147,6 +171,63 @@ def _format_ranked_bundle(ranked: RankedBundle, show_metadata: bool = False) -> 
     if show_metadata:
         lines.extend(["", "Metadata:", _metadata_text(ranked.metadata)])
     return "\n".join(lines)
+
+
+def _format_automation_decision(
+    decision: AutomationDecision,
+    show_metadata: bool = False,
+) -> str:
+    lines = [
+        f"Bundle: {decision.bundle_id}",
+        f"Decision: {decision.decision.value}",
+        f"Confidence: {decision.confidence.score:.2f} ({decision.confidence.label.value})",
+        f"Summary: {decision.summary}",
+        "",
+        "Selected sources:",
+        *_source_lines(decision.selected_sources),
+        "",
+        "Next action:",
+        f"- {decision.next_action.type.value}: {decision.next_action.label}",
+        f"  {decision.next_action.description}",
+    ]
+    if decision.next_action.question:
+        lines.append(f"  question: {decision.next_action.question}")
+    if decision.context_request:
+        lines.extend(
+            [
+                "",
+                "Context request:",
+                f"- to: {decision.context_request.recipient_name}",
+                f"- why: {decision.context_request.recipient_reason}",
+                f"- question: {decision.context_request.question}",
+            ]
+        )
+    if decision.approval_prompt:
+        lines.extend(
+            [
+                "",
+                "Approval prompt:",
+                f"- {decision.approval_prompt.issue_type}: {decision.approval_prompt.question}",
+            ]
+        )
+    if decision.draft_handoff:
+        lines.extend(["", "Draft handoff:", decision.draft_handoff.text])
+    lines.extend(["", "Policy gates:"])
+    lines.extend(
+        f"- {gate.gate}: {gate.status.value} ({gate.effect.value})"
+        for gate in decision.policy_gates
+    )
+    lines.extend(["", "Weak points:"])
+    lines.extend(_weak_point_lines(decision.weak_points))
+    if show_metadata:
+        lines.extend(["", "Metadata:", _metadata_text(decision.metadata)])
+    return "\n".join(lines)
+
+
+def _source_lines(source_ids: list[str]) -> list[str]:
+    if not source_ids:
+        return ["- none"]
+    return [f"- {source_id}" for source_id in source_ids]
 
 
 def _score_text(ranked: RankedSource, dimension: RankingDimension) -> str:

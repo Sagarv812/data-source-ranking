@@ -48,6 +48,54 @@ fixtures/bundles/
 
 Use strength folders for single-source scenarios. Use `bundles/` for multi-source scenarios where corroboration, sensitive evidence overlap, owner resolution, or automation decisions will eventually be tested.
 
+## Fixture Index
+
+Single-source fixtures are grouped by expected source tier. The tier describes individual evidence strength for the fixture's context need, not whether the source alone completes every automation need.
+
+### Strong Sources
+
+| Fixture | Expected Tier | What It Proves |
+| --- | --- | --- |
+| `fixtures/strong/acme_recent_crm_note.json` | `strong` | Recent same-client CRM evidence from an account owner can be strong even before bundle corroboration. |
+| `fixtures/strong/acme_recent_meeting_notes_clear_attendees.json` | `strong` | Recent meeting notes with clear attendees and next-step detail can support auto-handoff context. |
+| `fixtures/strong/betaworks_current_opportunity_owner_note.json` | `strong` | Same-opportunity evidence authored by the current opportunity owner can stand on strong authority. |
+| `fixtures/strong/deltabank_recent_meeting_notes_clear_attendees.json` | `strong` | Direct financial-services meeting evidence can be strong when it is recent, specific, and owner-linked. |
+| `fixtures/strong/gammahealth_human_validated_context.json` | `strong` | Human validation can refresh and strengthen otherwise risky re-engagement context. |
+| `fixtures/strong/northstar_final_proposal_with_feedback.json` | `strong` | Final proposal feedback with accepted validation can provide high-authority decision context. |
+
+### Medium Sources
+
+| Fixture | Expected Tier | What It Proves |
+| --- | --- | --- |
+| `fixtures/medium/acme_same_client_adjacent_work.json` | `medium` | Same-client adjacent-opportunity work is useful but should not masquerade as current-opportunity evidence. |
+| `fixtures/medium/betaworks_old_proposal_with_owner.json` | `medium` | Older proposal evidence can be useful when it has a clear owner path for validation. |
+| `fixtures/medium/deltabank_meeting_title_without_notes.json` | `medium` | A meeting event/title can confirm interaction but remains incomplete without notes. |
+| `fixtures/medium/gammahealth_useful_document_unclear_owner.json` | `medium` | Useful content with unclear ownership should be treated as usable but not automatic. |
+| `fixtures/medium/northstar_similar_client_proposal.json` | `medium` | Similar-client context can be directional support, capped below strong. |
+
+### Weak Sources
+
+| Fixture | Expected Tier | What It Proves |
+| --- | --- | --- |
+| `fixtures/weak/acme_document_no_clear_owner.json` | `weak` | Strong-looking document content is unsafe when no validation owner is available. |
+| `fixtures/weak/acme_unsupported_inferred_claim.json` | `weak` | Unsupported inference should block confident automation even when the surrounding source looks direct. |
+| `fixtures/weak/betaworks_stale_account_context.json` | `weak` | Stale account context should not drive current expansion messaging without validation. |
+| `fixtures/weak/deltabank_unverified_partner_material.json` | `weak` | Partner-channel material is sensitive and low-directness unless validated by the account team. |
+| `fixtures/weak/gammahealth_old_generic_deck.json` | `weak` | Old generic decks are too stale and vague for personalized outreach context. |
+| `fixtures/weak/gammahealth_vague_crm_note.json` | `weak` | Recent CRM data can still be weak when the claim is too vague. |
+| `fixtures/weak/northstar_weak_similar_client_match.json` | `weak` | Keyword-only similar-client matches are weak directional evidence. |
+
+### Bundles
+
+Bundle fixtures combine scattered sources around one context need and exercise the final automation decision.
+
+| Fixture | Expected Decision | What It Proves |
+| --- | --- | --- |
+| `fixtures/bundles/acme_auto_handoff.json` | `auto_handoff` | Strong recent CRM and meeting evidence can safely cover the required handoff context. |
+| `fixtures/bundles/beta_needs_owner_validation.json` | `generate_context_request` | Useful but older BetaWorks evidence should ask for owner validation before automation. |
+| `fixtures/bundles/delta_contradictory_sources.json` | `needs_user_review` | Sensitive partner-channel evidence overlapping with usable evidence should force review. |
+| `fixtures/bundles/gamma_blocked.json` | `blocked` | Vague or stale weak evidence should block automation when no usable source covers the required need. |
+
 ## Fictional Clients
 
 | Client ID | Name | Industry | Typical Scenario Use |
