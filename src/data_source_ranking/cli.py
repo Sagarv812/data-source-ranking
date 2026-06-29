@@ -218,6 +218,21 @@ def _format_automation_decision(
         )
     if decision.draft_handoff:
         lines.extend(["", "Draft handoff:", decision.draft_handoff.text])
+    if decision.blocked_output:
+        lines.extend(
+            [
+                "",
+                "Blocked output:",
+                f"- reason: {decision.blocked_output.blocking_reason}",
+                "- missing evidence:",
+                *_indented_lines(decision.blocked_output.missing_evidence),
+                "- sources considered:",
+                *_indented_lines(decision.blocked_output.sources_considered),
+                "- blocking gates:",
+                *_indented_lines(decision.blocked_output.blocking_policy_gates),
+                f"- manual next step: {decision.blocked_output.manual_next_step}",
+            ]
+        )
     lines.extend(["", "Policy gates:"])
     lines.extend(
         f"- {gate.gate}: {gate.status.value} ({gate.effect.value})"
@@ -234,6 +249,12 @@ def _source_lines(source_ids: list[str]) -> list[str]:
     if not source_ids:
         return ["- none"]
     return [f"- {source_id}" for source_id in source_ids]
+
+
+def _indented_lines(values: list[str]) -> list[str]:
+    if not values:
+        return ["  - none"]
+    return [f"  - {value}" for value in values]
 
 
 def _score_text(ranked: RankedSource, dimension: RankingDimension) -> str:

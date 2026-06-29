@@ -56,6 +56,27 @@ def test_decide_command_prints_readable_summary() -> None:
     assert "Policy gates:" in result.stdout
 
 
+def test_decide_command_prints_blocked_output() -> None:
+    result = runner.invoke(app, ["decide", "fixtures/bundles/gamma_blocked.json"])
+
+    assert result.exit_code == 0
+    assert "Decision: blocked" in result.stdout
+    assert "Blocked output:" in result.stdout
+    assert (
+        "reason: One or more required claims do not have usable source coverage."
+        in result.stdout
+    )
+    assert "missing evidence:" in result.stdout
+    assert "Specific current concern that would make re-engagement relevant." in result.stdout
+    assert "sources considered:" in result.stdout
+    assert "src_gammahealth_vague_crm_note" in result.stdout
+    assert "src_gammahealth_old_generic_deck" in result.stdout
+    assert "blocking gates:" in result.stdout
+    assert "required_claims_have_usable_coverage" in result.stdout
+    assert "owner_signal_available" in result.stdout
+    assert "manual next step:" in result.stdout
+
+
 def test_decide_command_prints_approval_prompt() -> None:
     result = runner.invoke(
         app,
@@ -153,6 +174,35 @@ def test_decide_command_can_print_json() -> None:
     assert payload["confidence"]["label"] == "high"
     assert payload["next_action"]["type"] == "prepare_handoff"
     assert payload["ranked_bundle"]["id"] == "bundle_acme_auto_handoff"
+
+
+def test_decide_command_json_includes_blocked_output() -> None:
+    result = runner.invoke(
+        app,
+        ["decide", "fixtures/bundles/gamma_blocked.json", "--json"],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    blocked_output = payload["blocked_output"]
+    assert payload["decision"] == "blocked"
+    assert blocked_output["blocking_reason"] == (
+        "One or more required claims do not have usable source coverage."
+    )
+    assert blocked_output["missing_evidence"] == [
+        "Specific current concern that would make re-engagement relevant."
+    ]
+    assert blocked_output["sources_considered"] == [
+        "src_gammahealth_vague_crm_note",
+        "src_gammahealth_old_generic_deck",
+    ]
+    assert blocked_output["blocking_policy_gates"] == [
+        "required_claims_have_usable_coverage",
+        "owner_signal_available",
+    ]
+    assert payload["draft_handoff"] is None
+    assert payload["context_request"] is None
+    assert payload["approval_prompt"] is None
 
 
 def test_decide_command_json_includes_approval_prompt() -> None:

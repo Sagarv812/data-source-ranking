@@ -84,6 +84,7 @@ def test_automation_decision_serializes_to_json_contract() -> None:
     assert set(payload) == {
         "approval_prompt",
         "audit_trace",
+        "blocked_output",
         "bundle_id",
         "confidence",
         "context_request",

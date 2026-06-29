@@ -6,6 +6,7 @@ from data_source_ranking.context_requests import build_context_request
 from data_source_ranking.decisions import (
     ApprovalPrompt,
     AutomationDecision,
+    BlockedOutput,
     ContextRequest,
     DecisionAuditEvent,
     DecisionConfidence,
@@ -56,7 +57,14 @@ def decide(bundle: SourceBundle, as_of: date = DEFAULT_AS_OF) -> AutomationDecis
         next_action=_next_action(decision, policy_gates, context_request, approval_prompt),
         approval_prompt=approval_prompt,
         context_request=context_request,
-        draft_handoff=_draft_handoff(bundle, decision, selected_claims, selected_sources),
+        draft_handoff=_draft_handoff(
+            bundle,
+            decision,
+            selected_claims,
+            selected_sources,
+            policy_gates,
+        ),
+        blocked_output=_blocked_output(bundle, decision, ranked_bundle, policy_gates),
         audit_trace=_audit_trace(decision, ranked_bundle, policy_gates),
         metadata={"decision_engine": "rule_based_v1", "as_of": as_of.isoformat()},
     )
@@ -244,15 +252,160 @@ def _draft_handoff(
     decision: DecisionType,
     selected_claims: list[SelectedClaim],
     selected_sources: list[str],
+    policy_gates: list[PolicyGateResult],
 ) -> DraftHandoff | None:
     if decision is not DecisionType.AUTO_HANDOFF or not selected_claims:
         return None
-    claim_text = " ".join(claim.text for claim in selected_claims)
     return DraftHandoff(
-        text=f"{bundle.context_need.email_goal} {claim_text}",
-        supported_claim_ids=[claim.claim_id for claim in selected_claims],
+        text=_draft_handoff_text(bundle, selected_claims),
+        supported_claim_ids=_unique([claim.claim_id for claim in selected_claims]),
         source_ids=selected_sources,
+        caveats=[],
+        metadata={
+            "handoff_type": "auto",
+            "review_skipped_reason": _review_skipped_reason(policy_gates),
+            "selected_claim_count": len(selected_claims),
+            "source_count": len(selected_sources),
+        },
     )
+
+
+def _draft_handoff_text(bundle: SourceBundle, selected_claims: list[SelectedClaim]) -> str:
+    claim_text = " ".join(_sentence(claim.text) for claim in selected_claims)
+    return (
+        f"For {_handoff_goal(bundle.context_need.email_goal)}, use this "
+        f"source-backed context: {claim_text}"
+    )
+
+
+def _handoff_goal(email_goal: str) -> str:
+    goal = email_goal.strip().rstrip(".")
+    lowered = goal.casefold()
+    for prefix in ("prepare ", "draft ", "write ", "create "):
+        if lowered.startswith(prefix):
+            return _lower_initial(goal[len(prefix) :])
+    return _lower_initial(goal)
+
+
+def _lower_initial(text: str) -> str:
+    if len(text) > 1 and text[1].isupper():
+        return text
+    return f"{text[:1].lower()}{text[1:]}"
+
+
+def _sentence(text: str) -> str:
+    stripped = text.strip()
+    if stripped.endswith((".", "!", "?")):
+        return stripped
+    return f"{stripped}."
+
+
+def _review_skipped_reason(policy_gates: list[PolicyGateResult]) -> str:
+    passed_gate_names = {
+        gate.gate for gate in policy_gates if gate.status is PolicyGateStatus.PASSED
+    }
+    if "required_claims_have_strong_coverage" in passed_gate_names:
+        return "All required claims have strong source coverage and no review gate fired."
+    return "No review gate fired for the selected source-backed claims."
+
+
+def _unique(values: list[str]) -> list[str]:
+    return list(dict.fromkeys(values))
+
+
+def _blocked_output(
+    bundle: SourceBundle,
+    decision: DecisionType,
+    ranked_bundle: RankedBundle,
+    policy_gates: list[PolicyGateResult],
+) -> BlockedOutput | None:
+    if decision is not DecisionType.BLOCKED:
+        return None
+    blocking_gates = _blocking_gates(policy_gates)
+    triggered_gates = _triggered_gates(policy_gates)
+    return BlockedOutput(
+        blocking_reason=_blocking_reason(blocking_gates, ranked_bundle),
+        missing_evidence=_missing_evidence(bundle, ranked_bundle, blocking_gates),
+        sources_considered=_ranked_source_ids(ranked_bundle),
+        blocking_policy_gates=[gate.gate for gate in blocking_gates],
+        manual_next_step=_manual_next_step(blocking_gates),
+        metadata={
+            "triggered_policy_gates": [gate.gate for gate in triggered_gates],
+            "sources_considered_count": len(ranked_bundle.ranked_sources),
+            "weak_point_types": _weak_point_types(ranked_bundle),
+        },
+    )
+
+
+def _blocking_gates(policy_gates: list[PolicyGateResult]) -> list[PolicyGateResult]:
+    return [
+        gate
+        for gate in policy_gates
+        if gate.status is PolicyGateStatus.TRIGGERED
+        and gate.effect is PolicyGateEffect.BLOCKS_AUTOMATION
+    ]
+
+
+def _triggered_gates(policy_gates: list[PolicyGateResult]) -> list[PolicyGateResult]:
+    return [gate for gate in policy_gates if gate.status is PolicyGateStatus.TRIGGERED]
+
+
+def _blocking_reason(
+    blocking_gates: list[PolicyGateResult],
+    ranked_bundle: RankedBundle,
+) -> str:
+    if blocking_gates:
+        return blocking_gates[0].message
+    return ranked_bundle.reasons[0] if ranked_bundle.reasons else "Automation was blocked."
+
+
+def _missing_evidence(
+    bundle: SourceBundle,
+    ranked_bundle: RankedBundle,
+    blocking_gates: list[PolicyGateResult],
+) -> list[str]:
+    needed_claims = {claim.id: claim.description for claim in bundle.context_need.needed_claims}
+    missing_ids = _unique(
+        [needed_claim_id for gate in blocking_gates for needed_claim_id in gate.needed_claim_ids]
+    )
+    if not missing_ids:
+        target_ids = ranked_bundle.metadata.get("target_needed_claim_ids", [])
+        usable_ids = set(ranked_bundle.metadata.get("usable_coverage", []))
+        missing_ids = [
+            needed_claim_id for needed_claim_id in target_ids if needed_claim_id not in usable_ids
+        ]
+    return [needed_claims.get(needed_claim_id, needed_claim_id) for needed_claim_id in missing_ids]
+
+
+def _ranked_source_ids(ranked_bundle: RankedBundle) -> list[str]:
+    return [ranked.source_id for ranked in ranked_bundle.ranked_sources]
+
+
+def _manual_next_step(blocking_gates: list[PolicyGateResult]) -> str:
+    gate_names = {gate.gate for gate in blocking_gates}
+    if {
+        "required_claims_have_usable_coverage",
+        "owner_signal_available",
+    } <= gate_names:
+        return (
+            "Find a recent same-client source that directly covers the missing required "
+            "context, or identify an owner who can provide validated current context."
+        )
+    if "required_claims_have_usable_coverage" in gate_names:
+        return (
+            "Find a recent same-client source that directly covers the missing required "
+            "context before restarting automation."
+        )
+    if "owner_signal_available" in gate_names:
+        return (
+            "Identify an owner who can validate the usable context before restarting "
+            "automation."
+        )
+    return "Manually review the evidence and add a reliable source before restarting automation."
+
+
+def _weak_point_types(ranked_bundle: RankedBundle) -> list[str]:
+    return sorted({point.type.value for point in ranked_bundle.weak_points})
 
 
 def _audit_trace(

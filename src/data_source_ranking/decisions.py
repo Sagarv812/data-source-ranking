@@ -127,6 +127,15 @@ class DraftHandoff(StrictModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class BlockedOutput(StrictModel):
+    blocking_reason: str = Field(min_length=1)
+    missing_evidence: list[str] = Field(default_factory=list)
+    sources_considered: list[str] = Field(default_factory=list)
+    blocking_policy_gates: list[str] = Field(default_factory=list)
+    manual_next_step: str = Field(min_length=1)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class DecisionAuditEvent(StrictModel):
     event: str
     message: str = Field(min_length=1)
@@ -149,5 +158,6 @@ class AutomationDecision(StrictModel):
     approval_prompt: ApprovalPrompt | None = None
     context_request: ContextRequest | None = None
     draft_handoff: DraftHandoff | None = None
+    blocked_output: BlockedOutput | None = None
     audit_trace: list[DecisionAuditEvent] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)

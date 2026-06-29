@@ -10,7 +10,7 @@ The current prototype supports:
 
 - source ranking: `strong`, `medium`, or `weak`
 - bundle decisions: `auto_handoff`, `generate_context_request`, `needs_user_review`, or `blocked`
-- product-level automation decisions with confidence, policy gates, selected evidence, next action, context request, and draft handoff fields
+- product-level automation decisions with confidence, policy gates, selected evidence, next action, context request, source-backed auto handoff text, and structured blocked output
 - nine scoring dimensions with reasons, labels, weak points, and metadata
 - context request generation for owner-validation cases
 - focused routing for similar-client and unclear-owner review cases
@@ -96,7 +96,7 @@ data-source-ranking rank-bundle fixtures/bundles/gamma_blocked.json --as-of 2026
 
 ### `decide`
 
-Loads a bundle fixture, ranks the evidence, evaluates policy gates, selects the final automation decision, and prints the next action. The decision output can include selected claims, selected sources, source citations, context requests, draft handoff text, weak points, and audit events.
+Loads a bundle fixture, ranks the evidence, evaluates policy gates, selects the final automation decision, and prints the next action. The decision output can include selected claims, selected sources, source citations, context requests, draft handoff text, blocked-output details, weak points, and audit events.
 
 ```bash
 data-source-ranking decide fixtures/bundles/beta_needs_owner_validation.json --as-of 2026-06-21

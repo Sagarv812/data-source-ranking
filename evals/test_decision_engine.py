@@ -24,6 +24,33 @@ def test_decide_returns_auto_handoff_decision() -> None:
     assert decision.confidence.label is DecisionConfidenceLabel.HIGH
     assert decision.next_action.type is NextActionType.PREPARE_HANDOFF
     assert decision.draft_handoff is not None
+    assert decision.blocked_output is None
+    assert decision.draft_handoff.text.startswith(
+        "For account handoff before renewal pitch, use this source-backed context:"
+    )
+    assert decision.draft_handoff.text != (
+        f"{bundle.context_need.email_goal} "
+        f"{' '.join(claim.text for claim in decision.selected_claims)}"
+    )
+    assert "The client pushed back on implementation timeline." in decision.draft_handoff.text
+    assert (
+        "Acme wants the renewal plan to address implementation timeline risk before expanding "
+        "automation to two additional facilities."
+    ) in decision.draft_handoff.text
+    assert decision.draft_handoff.supported_claim_ids == [
+        "claim_acme_timeline_concern",
+        "claim_acme_meeting_timeline_risk",
+    ]
+    assert decision.draft_handoff.source_ids == decision.selected_sources
+    assert decision.draft_handoff.caveats == []
+    assert decision.draft_handoff.metadata == {
+        "handoff_type": "auto",
+        "review_skipped_reason": (
+            "All required claims have strong source coverage and no review gate fired."
+        ),
+        "selected_claim_count": 2,
+        "source_count": 2,
+    }
     assert decision.approval_prompt is None
     assert decision.context_request is None
     assert decision.selected_sources == [
@@ -95,6 +122,45 @@ def test_decide_returns_blocked_decision() -> None:
     assert decision.selected_claims == []
     assert decision.selected_sources == []
     assert decision.source_citations == []
+    assert decision.draft_handoff is None
+    assert decision.approval_prompt is None
+    assert decision.context_request is None
+    assert decision.blocked_output is not None
+    assert (
+        decision.blocked_output.blocking_reason
+        == "One or more required claims do not have usable source coverage."
+    )
+    assert decision.blocked_output.missing_evidence == [
+        "Specific current concern that would make re-engagement relevant."
+    ]
+    assert decision.blocked_output.sources_considered == [
+        "src_gammahealth_vague_crm_note",
+        "src_gammahealth_old_generic_deck",
+    ]
+    assert decision.blocked_output.blocking_policy_gates == [
+        "required_claims_have_usable_coverage",
+        "owner_signal_available",
+    ]
+    assert (
+        decision.blocked_output.manual_next_step
+        == "Find a recent same-client source that directly covers the missing required "
+        "context, or identify an owner who can provide validated current context."
+    )
+    assert decision.blocked_output.metadata == {
+        "triggered_policy_gates": [
+            "required_claims_have_usable_coverage",
+            "required_claims_have_strong_coverage",
+            "stale_unvalidated_source_absent",
+            "owner_signal_available",
+        ],
+        "sources_considered_count": 2,
+        "weak_point_types": [
+            "low_directness",
+            "missing_owner",
+            "stale_source",
+            "vague_claim",
+        ],
+    }
     assert gates["required_claims_have_usable_coverage"].status is PolicyGateStatus.TRIGGERED
     assert gates["owner_signal_available"].status is PolicyGateStatus.TRIGGERED
 
@@ -330,6 +396,7 @@ def test_decide_output_is_json_serializable(path: str) -> None:
     assert set(payload) == {
         "approval_prompt",
         "audit_trace",
+        "blocked_output",
         "bundle_id",
         "confidence",
         "context_request",
