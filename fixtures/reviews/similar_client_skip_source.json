@@ -1,0 +1,14 @@
+{
+  "bundle_path": "fixtures/bundles/northstar_similar_client_review.json",
+  "as_of": "2026-06-21",
+  "response": {
+    "bundle_id": "bundle_northstar_similar_client_review",
+    "prompt_issue_type": "similar_client_directional_context",
+    "selected_choice_id": "skip_source",
+    "responder_id": "user_demo",
+    "responder_name": "Demo User"
+  },
+  "metadata": {
+    "scenario": "Skip similar-client evidence and block when no selected evidence remains."
+  }
+}

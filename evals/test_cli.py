@@ -309,6 +309,84 @@ def test_decide_command_json_includes_old_proposal_prompt() -> None:
     assert prompt["choices"][1]["metadata"]["risk"] == "stale_proposal"
 
 
+def test_apply_review_command_prints_readable_summary() -> None:
+    result = runner.invoke(
+        app,
+        ["apply-review", "fixtures/reviews/similar_client_use_directional.json"],
+    )
+
+    assert result.exit_code == 0
+    assert "Review fixture: fixtures/reviews/similar_client_use_directional.json" in result.stdout
+    assert "Bundle: bundle_northstar_similar_client_review" in result.stdout
+    assert "Status: accepted" in result.stdout
+    assert "Accepted: true" in result.stdout
+    assert "Selected choice:" in result.stdout
+    assert "use_directional_with_label" in result.stdout
+    assert "Applied effects:" in result.stdout
+    assert "caveat_accepted" in result.stdout
+    assert "Updated decision:" in result.stdout
+    assert "decision: needs_user_review" in result.stdout
+    assert "next action: manual_review" in result.stdout
+
+
+def test_apply_review_command_can_print_json() -> None:
+    result = runner.invoke(
+        app,
+        ["apply-review", "fixtures/reviews/similar_client_skip_source.json", "--json"],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "accepted"
+    assert payload["accepted"] is True
+    assert payload["response"]["selected_choice_id"] == "skip_source"
+    assert payload["applied_effects"] == [
+        "response_validated",
+        "choice:skip_source",
+        "source_excluded",
+    ]
+    assert payload["updated_decision"]["decision"] == "blocked"
+    assert payload["updated_decision"]["approval_prompt"] is None
+    assert payload["updated_decision"]["blocked_output"]["blocking_reason"] == (
+        "Review response excluded all selected source evidence."
+    )
+
+
+def test_apply_review_command_supports_owner_selection_fixture() -> None:
+    result = runner.invoke(
+        app,
+        ["apply-review", "fixtures/reviews/unclear_owner_choose_owner.json", "--json"],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["accepted"] is True
+    assert payload["applied_effects"] == [
+        "response_validated",
+        "choice:choose_owner",
+        "owner_selected",
+    ]
+    assert payload["updated_decision"]["decision"] == "generate_context_request"
+    assert payload["updated_decision"]["context_request"]["recipient_id"] == "user_priya"
+    assert payload["updated_decision"]["next_action"]["type"] == "ask_owner"
+
+
+def test_apply_review_command_can_show_metadata() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "apply-review",
+            "fixtures/reviews/old_proposal_use_historical_context.json",
+            "--show-metadata",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Metadata:" in result.stdout
+    assert '"accepted_caveat": "historical_context_only"' in result.stdout
+    assert '"accepted_risk": "stale_proposal"' in result.stdout
+
+
 def test_rank_source_json_output_shape_is_stable() -> None:
     result = runner.invoke(
         app,
@@ -456,7 +534,8 @@ def test_validate_fixtures_command_prints_counts() -> None:
     assert result.exit_code == 0
     assert result.stdout.startswith("Validated ")
     assert " source, " in result.stdout
-    assert " bundle." in result.stdout
+    assert " bundle, " in result.stdout
+    assert " review." in result.stdout
 
 
 def test_validate_fixtures_command_fails_for_invalid_fixture(tmp_path: Path) -> None:

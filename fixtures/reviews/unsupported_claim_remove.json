@@ -1,0 +1,14 @@
+{
+  "bundle_path": "fixtures/bundles/acme_unsupported_claim_review.json",
+  "as_of": "2026-06-21",
+  "response": {
+    "bundle_id": "bundle_acme_unsupported_claim_review",
+    "prompt_issue_type": "unsupported_claim",
+    "selected_choice_id": "remove_claim",
+    "responder_id": "user_demo",
+    "responder_name": "Demo User"
+  },
+  "metadata": {
+    "scenario": "Remove an unsupported inferred claim."
+  }
+}

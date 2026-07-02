@@ -1,0 +1,16 @@
+{
+  "bundle_path": "fixtures/bundles/betaworks_old_proposal_review.json",
+  "as_of": "2026-06-21",
+  "response": {
+    "bundle_id": "bundle_betaworks_old_proposal_review",
+    "prompt_issue_type": "old_proposal",
+    "selected_choice_id": "use_historical_context",
+    "user_accepts_risk": true,
+    "responder_id": "user_demo",
+    "responder_name": "Demo User",
+    "notes": "Use only as historical context, not current fact."
+  },
+  "metadata": {
+    "scenario": "Accept old proposal context with a historical-context caveat."
+  }
+}

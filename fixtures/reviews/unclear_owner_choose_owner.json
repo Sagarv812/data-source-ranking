@@ -1,0 +1,16 @@
+{
+  "bundle_path": "fixtures/bundles/gammahealth_unclear_owner_review.json",
+  "as_of": "2026-06-21",
+  "response": {
+    "bundle_id": "bundle_gammahealth_unclear_owner_review",
+    "prompt_issue_type": "unclear_owner",
+    "selected_choice_id": "choose_owner",
+    "selected_owner_id": "user_priya",
+    "selected_owner_name": "Priya Shah",
+    "responder_id": "user_demo",
+    "responder_name": "Demo User"
+  },
+  "metadata": {
+    "scenario": "Choose a validation owner for an unclear-owner source."
+  }
+}

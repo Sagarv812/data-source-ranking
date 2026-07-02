@@ -7,6 +7,8 @@ import pytest
 from data_source_ranking.loader import (
     FixtureLoadError,
     is_bundle_fixture,
+    is_review_response_fixture,
+    load_review_response_fixture,
     load_source_bundle,
     load_source_bundle_fixture,
     load_source_fixture,
@@ -19,6 +21,7 @@ from data_source_ranking.models import (
     SourceFixture,
     Tier,
 )
+from data_source_ranking.review_responses import ReviewResponseFixture
 
 SCENARIO_DIR = Path("fixtures")
 
@@ -33,6 +36,11 @@ def scenario_paths() -> list[Path]:
 
 @pytest.mark.parametrize("path", scenario_paths(), ids=str)
 def test_all_json_scenarios_validate(path: Path) -> None:
+    if "reviews" in path.parts:
+        review_fixture = load_review_response_fixture(path)
+        assert isinstance(review_fixture, ReviewResponseFixture)
+        return
+
     if "bundles" in path.parts:
         bundle_fixture = load_source_bundle_fixture(path)
         assert isinstance(bundle_fixture, SourceBundleFixture)
@@ -47,7 +55,7 @@ def test_all_json_scenarios_validate(path: Path) -> None:
 
 @pytest.mark.parametrize("path", scenario_paths(), ids=str)
 def test_all_source_scenarios_include_expected_tier(path: Path) -> None:
-    if "bundles" in path.parts:
+    if "bundles" in path.parts or "reviews" in path.parts:
         return
 
     scenario = load_source_fixture(path)
@@ -87,6 +95,13 @@ def test_bundle_refs_resolve_to_sources(path: Path) -> None:
 def test_bundle_fixture_detection_uses_json_shape() -> None:
     assert is_bundle_fixture("fixtures/bundles/acme_auto_handoff.json")
     assert not is_bundle_fixture("fixtures/strong/acme_recent_crm_note.json")
+    assert not is_bundle_fixture("fixtures/reviews/similar_client_use_directional.json")
+
+
+def test_review_fixture_detection_uses_json_shape() -> None:
+    assert is_review_response_fixture("fixtures/reviews/similar_client_use_directional.json")
+    assert not is_review_response_fixture("fixtures/bundles/acme_auto_handoff.json")
+    assert not is_review_response_fixture("fixtures/strong/acme_recent_crm_note.json")
 
 
 def test_malformed_json_raises_fixture_load_error(tmp_path: Path) -> None:
@@ -183,7 +198,7 @@ def test_bundle_refs_resolve_from_absolute_path_outside_repo_root(
 
 @pytest.mark.parametrize("path", scenario_paths(), ids=str)
 def test_non_strong_scenarios_include_expected_weak_points(path: Path) -> None:
-    if "bundles" in path.parts:
+    if "bundles" in path.parts or "reviews" in path.parts:
         return
 
     scenario = load_source_fixture(path)
@@ -195,7 +210,7 @@ def test_non_strong_scenarios_include_expected_weak_points(path: Path) -> None:
 
 @pytest.mark.parametrize("path", scenario_paths(), ids=str)
 def test_similar_client_sources_include_similarity_reason(path: Path) -> None:
-    if "bundles" in path.parts:
+    if "bundles" in path.parts or "reviews" in path.parts:
         return
 
     scenario = load_source_fixture(path)

@@ -1,26 +1,22 @@
 # Data Source Ranking
 
-Prototype for ranking retrieved context by evidence quality before using it in automated email workflows.
+Prototype for ranking retrieved business context before an automation system uses it in generated email workflows.
 
-## What It Does
+Use this prototype as an inspectable trust gate. It scores normalized source records, ranks source bundles, applies policy gates, and returns a structured automation decision that a CLI, API, or future UI can render without recalculating policy.
 
-This project is an inspectable trust gate for retrieved business context. It scores sources against a specific context need, assigns a source tier, and combines multiple sources into an automation decision.
+## Current Capabilities
 
-The current prototype supports:
+- Source ranking into `strong`, `medium`, or `weak`.
+- Bundle decisions across `auto_handoff`, `generate_context_request`, `needs_user_review`, and `blocked`.
+- Product-facing automation decisions with confidence, policy gates, selected evidence, source citations, next action, audit trace, and metadata.
+- Context requests for owner-validation cases.
+- Focused approval prompts for similar-client context, unclear ownership, sensitive evidence overlap, unsupported claims, sensitive partner material, and old proposals.
+- Source-backed draft handoff text for safe auto-handoff cases.
+- Structured blocked output for safety-stop cases.
+- Review-response validation and deterministic transitions through `apply-review`.
+- Synthetic source, bundle, and review fixtures for repeatable demos.
 
-- source ranking: `strong`, `medium`, or `weak`
-- bundle decisions: `auto_handoff`, `generate_context_request`, `needs_user_review`, or `blocked`
-- product-level automation decisions with confidence, policy gates, selected evidence, next action, context request, source-backed auto handoff text, and structured blocked output
-- nine scoring dimensions with reasons, labels, weak points, and metadata
-- context request generation for owner-validation cases
-- focused routing for similar-client and unclear-owner review cases
-- focused approval prompt generation for similar-client directional context, unclear-owner cases, sensitive evidence overlap, unsupported claims, sensitive partner material, and old proposals
-- synthetic fixture data for testing and demo runs
-- JSON output for future UI/API integration
-
-Source tiers describe the strength of an individual source as evidence. A strong source may still cover only part of a context need. Bundle ranking gives the evidence-layer decision. The `decide` command turns that ranked bundle into the product-facing automation decision: what the system should do next, why that action is safe, and what human input is needed if automation cannot proceed yet.
-
-See `fixtures/README.md` for the fixture index and scenario map.
+Source tiers describe individual evidence strength. Bundle ranking combines those sources into an evidence-layer decision. The `decide` command returns the product decision: use the context, ask an owner, ask the current user, or stop automation.
 
 ## Setup
 
@@ -28,51 +24,98 @@ See `fixtures/README.md` for the fixture index and scenario map.
 uv sync --extra dev
 ```
 
-If `uv` is not installed locally, create a Python 3.12 virtual environment and install the dependencies from `pyproject.toml`.
+If `uv` is unavailable, create a Python 3.12 virtual environment and install the dependencies from `pyproject.toml`.
 
-## Quickstart
+Run commands through the installed script:
 
-Validate all fixture files:
+```bash
+data-source-ranking --help
+```
+
+You can also run the module form from the repo:
+
+```bash
+python -m data_source_ranking.cli --help
+```
+
+## Demo Path
+
+Use the stable fixture date for repeatable output:
+
+```bash
+export AS_OF=2026-06-21
+```
+
+Validate fixture data:
 
 ```bash
 data-source-ranking validate-fixtures fixtures
 ```
 
-Rank one source fixture:
+Inspect a strong source:
 
 ```bash
-data-source-ranking rank-source fixtures/strong/acme_recent_crm_note.json --as-of 2026-06-21
+data-source-ranking rank-source fixtures/strong/acme_recent_crm_note.json --as-of "$AS_OF"
 ```
 
-Rank a bundle fixture:
+Inspect an evidence bundle:
 
 ```bash
-data-source-ranking rank-bundle fixtures/bundles/acme_auto_handoff.json --as-of 2026-06-21
+data-source-ranking rank-bundle fixtures/bundles/acme_auto_handoff.json --as-of "$AS_OF"
 ```
 
 Produce a full automation decision:
 
 ```bash
-data-source-ranking decide fixtures/bundles/beta_needs_owner_validation.json --as-of 2026-06-21
+data-source-ranking decide fixtures/bundles/acme_auto_handoff.json --as-of "$AS_OF"
 ```
 
-Print machine-readable JSON:
+Inspect a focused review case:
 
 ```bash
-data-source-ranking decide fixtures/bundles/acme_auto_handoff.json --json --as-of 2026-06-21
+data-source-ranking decide fixtures/bundles/northstar_similar_client_review.json --as-of "$AS_OF"
 ```
 
-Show deeper metadata in readable output:
+Apply a review response:
 
 ```bash
-data-source-ranking rank-source fixtures/strong/acme_recent_crm_note.json --show-metadata --as-of 2026-06-21
+data-source-ranking apply-review fixtures/reviews/similar_client_use_directional.json
 ```
 
-## Commands
+Print JSON for API or UI work:
+
+```bash
+data-source-ranking decide fixtures/bundles/acme_auto_handoff.json --json --as-of "$AS_OF"
+data-source-ranking apply-review fixtures/reviews/unclear_owner_choose_owner.json --json
+```
+
+## Decision Demos
+
+| Outcome | Command |
+| --- | --- |
+| `auto_handoff` | `data-source-ranking decide fixtures/bundles/acme_auto_handoff.json --as-of "$AS_OF"` |
+| `generate_context_request` | `data-source-ranking decide fixtures/bundles/beta_needs_owner_validation.json --as-of "$AS_OF"` |
+| `needs_user_review` | `data-source-ranking decide fixtures/bundles/delta_contradictory_sources.json --as-of "$AS_OF"` |
+| `blocked` | `data-source-ranking decide fixtures/bundles/gamma_blocked.json --as-of "$AS_OF"` |
+
+## Review Demos
+
+| Review Flow | Command |
+| --- | --- |
+| Use similar-client evidence as directional context | `data-source-ranking apply-review fixtures/reviews/similar_client_use_directional.json` |
+| Skip similar-client evidence and block | `data-source-ranking apply-review fixtures/reviews/similar_client_skip_source.json --json` |
+| Choose an owner for validation | `data-source-ranking apply-review fixtures/reviews/unclear_owner_choose_owner.json --json` |
+| Accept owner-unvalidated use | `data-source-ranking apply-review fixtures/reviews/unclear_owner_use_without_owner.json --show-metadata` |
+| Exclude sensitive overlapping evidence | `data-source-ranking apply-review fixtures/reviews/sensitive_overlap_exclude_source.json --json` |
+| Request validation for sensitive partner material | `data-source-ranking apply-review fixtures/reviews/sensitive_partner_request_validation.json --json` |
+| Remove an unsupported claim | `data-source-ranking apply-review fixtures/reviews/unsupported_claim_remove.json --json` |
+| Use old proposal context as historical | `data-source-ranking apply-review fixtures/reviews/old_proposal_use_historical_context.json --show-metadata` |
+
+## Command Reference
 
 ### `validate-fixtures`
 
-Checks that fixture JSON files match the schema and that bundle source references resolve correctly. This does not rank anything; it verifies the input data is usable.
+Checks source, bundle, and review fixture JSON files.
 
 ```bash
 data-source-ranking validate-fixtures fixtures
@@ -80,43 +123,48 @@ data-source-ranking validate-fixtures fixtures
 
 ### `rank-source`
 
-Loads a single source fixture, runs all scoring dimensions, assigns a tier, and prints the weak points.
+Scores one source against a context need and assigns a source tier.
 
 ```bash
-data-source-ranking rank-source fixtures/weak/gammahealth_vague_crm_note.json --as-of 2026-06-21
+data-source-ranking rank-source fixtures/weak/gammahealth_vague_crm_note.json --as-of "$AS_OF"
 ```
+
+Add `--show-metadata` to inspect scoring metadata.
 
 ### `rank-bundle`
 
-Loads a bundle fixture, ranks each source with bundle-aware context, and returns the evidence-layer bundle decision.
+Ranks each source in a bundle and returns the evidence-layer decision.
 
 ```bash
-data-source-ranking rank-bundle fixtures/bundles/gamma_blocked.json --as-of 2026-06-21
+data-source-ranking rank-bundle fixtures/bundles/gamma_blocked.json --as-of "$AS_OF"
 ```
 
 ### `decide`
 
-Loads a bundle fixture, ranks the evidence, evaluates policy gates, selects the final automation decision, and prints the next action. The decision output can include selected claims, selected sources, source citations, context requests, draft handoff text, blocked-output details, weak points, and audit events.
+Ranks a bundle, evaluates policy gates, selects the final automation decision, and prints the next action.
 
 ```bash
-data-source-ranking decide fixtures/bundles/beta_needs_owner_validation.json --as-of 2026-06-21
+data-source-ranking decide fixtures/bundles/betaworks_old_proposal_review.json --as-of "$AS_OF"
 ```
 
-Useful examples:
+The decision output can include selected claims, selected sources, source citations, context requests, approval prompts, draft handoff text, blocked-output details, weak points, and audit events.
+
+### `apply-review`
+
+Loads a review fixture, runs the referenced bundle through `decide`, applies the prompt response, and prints accepted effects plus the updated decision state.
 
 ```bash
-data-source-ranking decide fixtures/bundles/acme_auto_handoff.json --as-of 2026-06-21
-data-source-ranking decide fixtures/bundles/acme_unsupported_claim_review.json --as-of 2026-06-21
-data-source-ranking decide fixtures/bundles/beta_needs_owner_validation.json --as-of 2026-06-21
-data-source-ranking decide fixtures/bundles/betaworks_old_proposal_review.json --as-of 2026-06-21
-data-source-ranking decide fixtures/bundles/delta_contradictory_sources.json --as-of 2026-06-21
-data-source-ranking decide fixtures/bundles/deltabank_sensitive_partner_material_review.json --as-of 2026-06-21
-data-source-ranking decide fixtures/bundles/gamma_blocked.json --as-of 2026-06-21
-data-source-ranking decide fixtures/bundles/gammahealth_unclear_owner_review.json --as-of 2026-06-21
-data-source-ranking decide fixtures/bundles/northstar_similar_client_review.json --as-of 2026-06-21
+data-source-ranking apply-review fixtures/reviews/similar_client_use_directional.json
 ```
 
-Use `--json` when the output should be consumed by tests, a backend, or a future UI. Use `--as-of` to make freshness scoring explicit and repeatable. Use `--show-metadata` when readable output should include the supporting metadata.
+Use `--json` when tests, API code, or UI code need the full structured payload.
+
+## Docs
+
+- [Fixture conventions and scenario index](fixtures/README.md)
+- [Decision policy contract](docs/decision_policy.md)
+- [Prompt and review-response examples](docs/prompt_examples.md)
+- [Week 2 implementation notes](notes.md)
 
 ## Verification
 
@@ -124,15 +172,15 @@ Use `--json` when the output should be consumed by tests, a backend, or a future
 pytest
 ruff check .
 python -m compileall src evals
+python -m data_source_ranking.cli validate-fixtures fixtures
 ```
 
 ## Current Limits
 
-- Fixtures are synthetic and normalized, not raw CRM/Drive/Calendar exports.
-- Claims are manually supplied in fixtures for now.
-- Scoring and tiering are rule-based.
+- Fixtures use normalized synthetic data, not raw CRM, Drive, Calendar, proposal, or partner-system exports.
+- Fixtures include hand-written claims.
+- Scoring, tiering, and policy gates use deterministic rules.
 - Historical reliability uses static defaults until real feedback history exists.
-- Semantic contradiction detection is not implemented yet; sensitive overlapping evidence is conservatively sent to review.
-- Focused approval prompts are currently generated for similar-client directional context, unclear-owner cases, sensitive evidence overlap, unsupported claims, sensitive partner material, and old proposals. True contradiction prompts are pending semantic contradiction detection.
-- Review-response handling is not implemented yet.
-- The polished presentation UI is planned later, after the ranking core is stable.
+- The system detects sensitive evidence overlap, but it does not compare claim meaning for semantic contradictions yet.
+- Review-response transitions apply prompt answers to the current decision state. They do not run a full recompute.
+- A polished presentation UI remains Week 3 work.

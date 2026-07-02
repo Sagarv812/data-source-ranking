@@ -1,0 +1,14 @@
+{
+  "bundle_path": "fixtures/bundles/delta_contradictory_sources.json",
+  "as_of": "2026-06-21",
+  "response": {
+    "bundle_id": "bundle_delta_contradictory_sources",
+    "prompt_issue_type": "sensitive_evidence_overlap",
+    "selected_choice_id": "exclude_sensitive_source",
+    "responder_id": "user_demo",
+    "responder_name": "Demo User"
+  },
+  "metadata": {
+    "scenario": "Exclude sensitive overlapping evidence while preserving safer selected evidence."
+  }
+}

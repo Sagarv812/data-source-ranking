@@ -44,9 +44,11 @@ fixtures/strong/
 fixtures/medium/
 fixtures/weak/
 fixtures/bundles/
+fixtures/reviews/
 ```
 
 Use strength folders for single-source scenarios. Use `bundles/` for multi-source scenarios where corroboration, sensitive evidence overlap, owner resolution, or automation decisions will eventually be tested.
+Use `reviews/` for deterministic examples of prompt responses applied to bundle decisions.
 
 ## Fixture Index
 
@@ -100,6 +102,21 @@ Bundle fixtures combine scattered sources around one context need and exercise t
 | `fixtures/bundles/gamma_blocked.json` | `blocked` | Vague or stale weak evidence should block automation when no usable source covers the required need. |
 | `fixtures/bundles/gammahealth_unclear_owner_review.json` | `generate_context_request` | Evidence-layer output is usable-but-owner-ambiguous; policy gates escalate the final automation decision to unclear-owner review. |
 | `fixtures/bundles/northstar_similar_client_review.json` | `generate_context_request` | Evidence-layer output is usable-but-not-strong; policy gates escalate the final automation decision to similar-client review. |
+
+### Review Responses
+
+Review fixtures pair a bundle fixture with one user response to the focused approval prompt. They are consumed by `data-source-ranking apply-review`.
+
+| Fixture | Response | What It Proves |
+| --- | --- | --- |
+| `fixtures/reviews/similar_client_use_directional.json` | `use_directional_with_label` | Accepts similar-client evidence as directional context and preserves selected evidence for rerun. |
+| `fixtures/reviews/similar_client_skip_source.json` | `skip_source` | Removes the only selected similar-client evidence and blocks automation. |
+| `fixtures/reviews/unclear_owner_choose_owner.json` | `choose_owner` | Converts an unclear-owner review into an owner validation context request. |
+| `fixtures/reviews/unclear_owner_use_without_owner.json` | `use_without_owner` | Records explicit owner-risk acceptance and preserves selected evidence for rerun. |
+| `fixtures/reviews/sensitive_overlap_exclude_source.json` | `exclude_sensitive_source` | Excludes sensitive overlapping evidence while preserving safer selected evidence. |
+| `fixtures/reviews/sensitive_partner_request_validation.json` | `request_validation` | Converts standalone sensitive partner material review into an owner validation context request. |
+| `fixtures/reviews/unsupported_claim_remove.json` | `remove_claim` | Records unsupported-claim removal without deleting unrelated safe evidence. |
+| `fixtures/reviews/old_proposal_use_historical_context.json` | `use_historical_context` | Records stale-proposal risk acceptance and historical-context labeling. |
 
 ## Fictional Clients
 

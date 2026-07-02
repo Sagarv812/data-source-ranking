@@ -12,12 +12,18 @@ from data_source_ranking.decisions import AutomationDecision
 from data_source_ranking.loader import (
     FixtureLoadError,
     is_bundle_fixture,
+    is_review_response_fixture,
+    load_review_response_fixture,
     load_source_bundle,
     load_source_fixture,
 )
 from data_source_ranking.models import RankedBundle, RankedSource, RankingDimension, WeakPoint
 from data_source_ranking.ranking import rank_bundle as rank_bundle_file
 from data_source_ranking.ranking import rank_source as rank_source_file
+from data_source_ranking.review_responses import (
+    ReviewResponseResult,
+    apply_review_response,
+)
 from data_source_ranking.scoring.common import DEFAULT_AS_OF
 
 app = typer.Typer(help="Evidence-quality ranking prototype CLI.")
@@ -28,7 +34,7 @@ def main() -> None:
     pass
 
 
-@app.command("rank-source")
+@app.command("rank-source", help="Score one source fixture and assign an evidence tier.")
 def rank_source(
     path: Annotated[Path, typer.Argument(exists=True, file_okay=True, dir_okay=False)],
     as_json: Annotated[bool, typer.Option("--json", help="Print full result as JSON.")] = False,
@@ -50,7 +56,7 @@ def rank_source(
     typer.echo(_format_ranked_source(ranked, show_metadata=show_metadata))
 
 
-@app.command("rank-bundle")
+@app.command("rank-bundle", help="Rank a bundle of sources and return the evidence-layer decision.")
 def rank_bundle(
     path: Annotated[Path, typer.Argument(exists=True, file_okay=True, dir_okay=False)],
     as_json: Annotated[bool, typer.Option("--json", help="Print full result as JSON.")] = False,
@@ -72,7 +78,7 @@ def rank_bundle(
     typer.echo(_format_ranked_bundle(ranked, show_metadata=show_metadata))
 
 
-@app.command("decide")
+@app.command("decide", help="Produce the product-facing automation decision for a bundle.")
 def decide(
     path: Annotated[Path, typer.Argument(exists=True, file_okay=True, dir_okay=False)],
     as_json: Annotated[bool, typer.Option("--json", help="Print full result as JSON.")] = False,
@@ -94,7 +100,40 @@ def decide(
     typer.echo(_format_automation_decision(decision, show_metadata=show_metadata))
 
 
-@app.command("validate-fixtures")
+@app.command("apply-review", help="Apply a fixture-backed approval-prompt response.")
+def apply_review(
+    path: Annotated[Path, typer.Argument(exists=True, file_okay=True, dir_okay=False)],
+    as_json: Annotated[bool, typer.Option("--json", help="Print full result as JSON.")] = False,
+    show_metadata: Annotated[
+        bool,
+        typer.Option("--show-metadata", help="Include review metadata in readable output."),
+    ] = False,
+    as_of: Annotated[
+        str | None,
+        typer.Option("--as-of", help="Override the review fixture evaluation date."),
+    ] = None,
+) -> None:
+    review_fixture = load_review_response_fixture(path)
+    bundle_path = _resolve_review_bundle_path(path, review_fixture.bundle_path)
+    bundle = load_source_bundle(bundle_path)
+    effective_as_of = as_of or review_fixture.as_of or DEFAULT_AS_OF.isoformat()
+    decision = decide_file(bundle, as_of=_parse_as_of(effective_as_of))
+    result = apply_review_response(decision, review_fixture.response)
+    if as_json:
+        _print_json(result)
+        return
+
+    typer.echo(
+        _format_review_response_result(
+            result,
+            review_path=path,
+            bundle_path=bundle_path,
+            show_metadata=show_metadata,
+        )
+    )
+
+
+@app.command("validate-fixtures", help="Validate source, bundle, and review fixture JSON files.")
 def validate_fixtures(
     path: Annotated[Path, typer.Argument(exists=True, file_okay=True, dir_okay=True)],
 ) -> None:
@@ -105,11 +144,15 @@ def validate_fixtures(
 
     source_count = 0
     bundle_count = 0
+    review_count = 0
     errors: list[str] = []
 
     for fixture_path in fixture_paths:
         try:
-            if is_bundle_fixture(fixture_path):
+            if is_review_response_fixture(fixture_path):
+                load_review_response_fixture(fixture_path)
+                review_count += 1
+            elif is_bundle_fixture(fixture_path):
                 load_source_bundle(fixture_path)
                 bundle_count += 1
             else:
@@ -126,11 +169,13 @@ def validate_fixtures(
 
     typer.echo(
         f"Validated {len(fixture_paths)} fixture file(s): "
-        f"{source_count} source, {bundle_count} bundle."
+        f"{source_count} source, {bundle_count} bundle, {review_count} review."
     )
 
 
-def _print_json(result: RankedSource | RankedBundle | AutomationDecision) -> None:
+def _print_json(
+    result: RankedSource | RankedBundle | AutomationDecision | ReviewResponseResult,
+) -> None:
     typer.echo(json.dumps(result.model_dump(mode="json"), indent=2, sort_keys=True))
 
 
@@ -245,6 +290,46 @@ def _format_automation_decision(
     return "\n".join(lines)
 
 
+def _format_review_response_result(
+    result: ReviewResponseResult,
+    review_path: Path,
+    bundle_path: Path,
+    show_metadata: bool = False,
+) -> str:
+    lines = [
+        f"Review fixture: {review_path}",
+        f"Bundle fixture: {bundle_path}",
+        f"Bundle: {result.original_decision.bundle_id}",
+        f"Status: {result.status.value}",
+        f"Accepted: {str(result.accepted).lower()}",
+        "",
+        "Selected choice:",
+        f"- {result.response.selected_choice_id}",
+        "",
+        "Applied effects:",
+        *_indented_lines(result.applied_effects),
+    ]
+    if result.validation_errors:
+        lines.extend(["", "Validation errors:", *_indented_lines(result.validation_errors)])
+    if result.updated_decision:
+        lines.extend(
+            [
+                "",
+                "Updated decision:",
+                f"- decision: {result.updated_decision.decision.value}",
+                f"- summary: {result.updated_decision.summary}",
+                f"- next action: {result.updated_decision.next_action.type.value}",
+            ]
+        )
+        if result.updated_decision.next_action.question:
+            lines.append(f"- question: {result.updated_decision.next_action.question}")
+    else:
+        lines.extend(["", "Updated decision:", "- none"])
+    if show_metadata:
+        lines.extend(["", "Metadata:", _metadata_text(result.metadata)])
+    return "\n".join(lines)
+
+
 def _source_lines(source_ids: list[str]) -> list[str]:
     if not source_ids:
         return ["- none"]
@@ -278,6 +363,35 @@ def _fixture_paths(path: Path) -> list[Path]:
     if path.is_file():
         return [path] if path.suffix == ".json" else []
     return sorted(file_path for file_path in path.rglob("*.json") if file_path.is_file())
+
+
+def _resolve_review_bundle_path(review_path: Path, bundle_path_value: str) -> Path:
+    bundle_path = Path(bundle_path_value)
+    if bundle_path.is_absolute() or bundle_path.exists():
+        return bundle_path
+
+    relative_to_review = review_path.parent / bundle_path
+    if relative_to_review.exists():
+        return relative_to_review
+
+    relative_to_fixture_root = _relative_to_fixture_root(review_path, bundle_path)
+    if relative_to_fixture_root and relative_to_fixture_root.exists():
+        return relative_to_fixture_root
+
+    raise FixtureLoadError(
+        f"bundle path {bundle_path_value!r} from review fixture {review_path} does not exist"
+    )
+
+
+def _relative_to_fixture_root(review_path: Path, bundle_path: Path) -> Path | None:
+    review_path = review_path.resolve()
+    fixture_root = next(
+        (parent for parent in review_path.parents if parent.name == "fixtures"),
+        None,
+    )
+    if fixture_root is None or not bundle_path.parts or bundle_path.parts[0] != "fixtures":
+        return None
+    return fixture_root.parent / bundle_path
 
 
 def _parse_as_of(value: str) -> date:

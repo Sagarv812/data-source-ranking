@@ -6,6 +6,7 @@ from pathlib import Path
 from pydantic import BaseModel, ValidationError
 
 from data_source_ranking.models import SourceBundle, SourceBundleFixture, SourceFixture
+from data_source_ranking.review_responses import ReviewResponseFixture
 
 
 class FixtureLoadError(ValueError):
@@ -54,9 +55,18 @@ def load_source_bundle_fixture(path: str | Path) -> SourceBundleFixture:
     return _validate_fixture(Path(path), SourceBundleFixture)
 
 
+def load_review_response_fixture(path: str | Path) -> ReviewResponseFixture:
+    return _validate_fixture(Path(path), ReviewResponseFixture)
+
+
 def is_bundle_fixture(path: str | Path) -> bool:
     data = _load_json(Path(path))
     return "source_refs" in data
+
+
+def is_review_response_fixture(path: str | Path) -> bool:
+    data = _load_json(Path(path))
+    return "bundle_path" in data and "response" in data
 
 
 def _resolve_source_ref(bundle_path: Path, source_ref: str) -> Path:

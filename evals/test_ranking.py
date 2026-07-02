@@ -21,7 +21,9 @@ def source_fixture_paths() -> list[Path]:
     return sorted(
         path
         for path in Path("fixtures").glob("*/*.json")
-        if "bundles" not in path.parts and path.name != "README.md"
+        if "bundles" not in path.parts
+        and "reviews" not in path.parts
+        and path.name != "README.md"
     )
 
 

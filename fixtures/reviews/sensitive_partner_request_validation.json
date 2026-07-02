@@ -1,0 +1,14 @@
+{
+  "bundle_path": "fixtures/bundles/deltabank_sensitive_partner_material_review.json",
+  "as_of": "2026-06-21",
+  "response": {
+    "bundle_id": "bundle_deltabank_sensitive_partner_material_review",
+    "prompt_issue_type": "sensitive_partner_material",
+    "selected_choice_id": "request_validation",
+    "responder_id": "user_demo",
+    "responder_name": "Demo User"
+  },
+  "metadata": {
+    "scenario": "Request validation for standalone sensitive partner material."
+  }
+}
