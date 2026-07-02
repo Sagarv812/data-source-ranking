@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Any
 
 from data_source_ranking.agents.owner_resolution import (
     apply_owner_response as apply_owner_response_to_bundle,
@@ -43,6 +44,8 @@ def run_agent(
     owner_response: OwnerResponse | None = None,
     simulated_retrieval: SimulatedRetrievalFixture | None = None,
     retrieved_sources: list[Source] | None = None,
+    reliability_defaults: dict[str, float] | None = None,
+    feedback_metadata: dict[str, Any] | None = None,
 ) -> AgentRunResult:
     if max_iterations < 1:
         raise ValueError("max_iterations must be at least 1")
@@ -51,8 +54,20 @@ def run_agent(
     if simulated_retrieval is not None and retrieved_sources is None:
         raise ValueError("retrieved_sources are required with simulated_retrieval")
 
-    initial_decision = decide(bundle, as_of=as_of)
-    state = _build_initial_state(bundle, initial_decision, as_of, max_iterations)
+    learned_defaults = dict(reliability_defaults or {})
+    initial_decision = decide(
+        bundle,
+        as_of=as_of,
+        reliability_defaults=learned_defaults or None,
+    )
+    state = _build_initial_state(
+        bundle,
+        initial_decision,
+        as_of,
+        max_iterations,
+        learned_defaults,
+        feedback_metadata,
+    )
     state = _run_loop_once(state, initial_decision, max_iterations)
 
     if owner_response is not None:
@@ -62,6 +77,8 @@ def run_agent(
             owner_response,
             as_of,
             max_iterations,
+            learned_defaults,
+            feedback_metadata,
         )
     if simulated_retrieval is not None:
         state = _run_simulated_retrieval_rerun(
@@ -71,6 +88,8 @@ def run_agent(
             retrieved_sources or [],
             as_of,
             max_iterations,
+            learned_defaults,
+            feedback_metadata,
         )
 
     return AgentRunResult(
@@ -92,6 +111,8 @@ def _run_simulated_retrieval_rerun(
     retrieved_sources: list[Source],
     as_of: date,
     max_iterations: int,
+    reliability_defaults: dict[str, float],
+    feedback_metadata: dict[str, Any] | None,
 ) -> AgentLoopState:
     if state.automation_decision.decision is DecisionType.AUTO_HANDOFF:
         return _record_simulated_retrieval_not_applicable(
@@ -100,14 +121,27 @@ def _run_simulated_retrieval_rerun(
             retrieved_sources,
             as_of,
             max_iterations,
+            reliability_defaults,
+            feedback_metadata,
         )
 
     result = apply_simulated_retrieval(bundle, retrieval_fixture, retrieved_sources)
-    state = _record_simulated_retrieval_result(state, result, as_of, max_iterations)
+    state = _record_simulated_retrieval_result(
+        state,
+        result,
+        as_of,
+        max_iterations,
+        reliability_defaults,
+        feedback_metadata,
+    )
     if not result.accepted or result.updated_bundle is None or not result.added_source_ids:
         return state
 
-    updated_decision = decide(result.updated_bundle, as_of=as_of)
+    updated_decision = decide(
+        result.updated_bundle,
+        as_of=as_of,
+        reliability_defaults=reliability_defaults or None,
+    )
     state = state.model_copy(
         update={
             "current_sources": result.updated_bundle.sources,
@@ -129,6 +163,8 @@ def _run_simulated_retrieval_rerun(
                 as_of,
                 max_iterations,
                 SIMULATED_RETRIEVAL_RERUN_EXECUTION_MODE,
+                reliability_defaults,
+                feedback_metadata,
             ),
         }
     )
@@ -157,6 +193,8 @@ def _record_simulated_retrieval_result(
     result: SimulatedRetrievalResult,
     as_of: date,
     max_iterations: int,
+    reliability_defaults: dict[str, float],
+    feedback_metadata: dict[str, Any] | None,
 ) -> AgentLoopState:
     retrieved_source_ids = [source.id for source in result.retrieved_sources]
     state_changed = result.accepted and bool(result.added_source_ids)
@@ -210,6 +248,8 @@ def _record_simulated_retrieval_result(
                     if result.accepted
                     else SIMULATED_RETRIEVAL_REJECTED_EXECUTION_MODE
                 ),
+                reliability_defaults,
+                feedback_metadata,
             ),
         }
     )
@@ -222,6 +262,8 @@ def _record_simulated_retrieval_not_applicable(
     retrieved_sources: list[Source],
     as_of: date,
     max_iterations: int,
+    reliability_defaults: dict[str, float],
+    feedback_metadata: dict[str, Any] | None,
 ) -> AgentLoopState:
     result = SimulatedRetrievalResult(
         accepted=False,
@@ -240,7 +282,14 @@ def _record_simulated_retrieval_not_applicable(
             "reason": "simulated_retrieval_not_applicable",
         },
     )
-    return _record_simulated_retrieval_result(state, result, as_of, max_iterations)
+    return _record_simulated_retrieval_result(
+        state,
+        result,
+        as_of,
+        max_iterations,
+        reliability_defaults,
+        feedback_metadata,
+    )
 
 
 def _append_simulated_retrieval_audit_event(
@@ -286,6 +335,8 @@ def _build_initial_state(
     decision: AutomationDecision,
     as_of: date,
     max_iterations: int,
+    reliability_defaults: dict[str, float],
+    feedback_metadata: dict[str, Any] | None,
 ) -> AgentLoopState:
     stop_reason = _initial_stop_reason(decision.decision)
     return AgentLoopState(
@@ -301,10 +352,20 @@ def _build_initial_state(
         ],
         pending_approval_prompt=decision.approval_prompt,
         pending_context_request=decision.context_request,
-        audit_trace=_initial_audit_trace(bundle, decision),
+        audit_trace=_initial_audit_trace(
+            bundle,
+            decision,
+            reliability_defaults,
+            feedback_metadata,
+        ),
         final_decision=decision,
         stop_reason=stop_reason,
-        metadata=_metadata(as_of, max_iterations),
+        metadata=_metadata(
+            as_of,
+            max_iterations,
+            reliability_defaults=reliability_defaults,
+            feedback_metadata=feedback_metadata,
+        ),
     )
 
 
@@ -364,6 +425,8 @@ def _run_owner_response_rerun(
     owner_response: OwnerResponse,
     as_of: date,
     max_iterations: int,
+    reliability_defaults: dict[str, float],
+    feedback_metadata: dict[str, Any] | None,
 ) -> AgentLoopState:
     if not state.steps or state.steps[-1].action.type is not LoopActionType.ASK_OWNER:
         return _record_owner_response_not_applicable(
@@ -371,14 +434,27 @@ def _run_owner_response_rerun(
             owner_response,
             as_of,
             max_iterations,
+            reliability_defaults,
+            feedback_metadata,
         )
 
     result = apply_owner_response_to_bundle(bundle, owner_response, as_of=as_of)
-    state = _record_owner_response_result(state, result, as_of, max_iterations)
+    state = _record_owner_response_result(
+        state,
+        result,
+        as_of,
+        max_iterations,
+        reliability_defaults,
+        feedback_metadata,
+    )
     if not result.accepted or result.updated_bundle is None:
         return state
 
-    updated_decision = decide(result.updated_bundle, as_of=as_of)
+    updated_decision = decide(
+        result.updated_bundle,
+        as_of=as_of,
+        reliability_defaults=reliability_defaults or None,
+    )
     state = state.model_copy(
         update={
             "current_sources": result.updated_bundle.sources,
@@ -400,6 +476,8 @@ def _run_owner_response_rerun(
                 as_of,
                 max_iterations,
                 OWNER_RESPONSE_RERUN_EXECUTION_MODE,
+                reliability_defaults,
+                feedback_metadata,
             ),
         }
     )
@@ -428,6 +506,8 @@ def _record_owner_response_result(
     result: OwnerResponseResult,
     as_of: date,
     max_iterations: int,
+    reliability_defaults: dict[str, float],
+    feedback_metadata: dict[str, Any] | None,
 ) -> AgentLoopState:
     stop_reason = (
         state.stop_reason
@@ -481,6 +561,8 @@ def _record_owner_response_result(
                     if result.accepted
                     else OWNER_RESPONSE_REJECTED_EXECUTION_MODE
                 ),
+                reliability_defaults,
+                feedback_metadata,
             ),
         }
     )
@@ -492,6 +574,8 @@ def _record_owner_response_not_applicable(
     owner_response: OwnerResponse,
     as_of: date,
     max_iterations: int,
+    reliability_defaults: dict[str, float],
+    feedback_metadata: dict[str, Any] | None,
 ) -> AgentLoopState:
     step = LoopStep(
         sequence=len(state.steps) + 1,
@@ -528,6 +612,8 @@ def _record_owner_response_not_applicable(
                     as_of,
                     max_iterations,
                     OWNER_RESPONSE_REJECTED_EXECUTION_MODE,
+                    reliability_defaults,
+                    feedback_metadata,
                 ),
             }
         ),
@@ -658,23 +744,44 @@ def _initial_stop_reason(decision: DecisionType) -> StopReason:
     return StopReason.PENDING_USER_REVIEW
 
 
-def _initial_audit_trace(bundle: SourceBundle, decision: AutomationDecision) -> AuditTrace:
-    return AuditTrace(
-        events=[
+def _initial_audit_trace(
+    bundle: SourceBundle,
+    decision: AutomationDecision,
+    reliability_defaults: dict[str, float],
+    feedback_metadata: dict[str, Any] | None,
+) -> AuditTrace:
+    events = [
+        AuditEvent(
+            sequence=1,
+            event_type="bundle_loaded",
+            title="Bundle loaded",
+            detail="Loaded the evidence bundle for the agent run.",
+            action_type="load_bundle",
+            source_ids=[source.id for source in bundle.sources],
+            metadata={
+                "bundle_id": bundle.id,
+                "source_count": len(bundle.sources),
+            },
+        )
+    ]
+    if reliability_defaults:
+        events.append(
             AuditEvent(
-                sequence=1,
-                event_type="bundle_loaded",
-                title="Bundle loaded",
-                detail="Loaded the evidence bundle for the agent run.",
-                action_type="load_bundle",
-                source_ids=[source.id for source in bundle.sources],
+                sequence=len(events) + 1,
+                event_type="feedback_snapshot_applied",
+                title="Feedback snapshot applied",
+                detail="Learned reliability defaults were applied before ranking sources.",
+                action_type="record_feedback",
                 metadata={
-                    "bundle_id": bundle.id,
-                    "source_count": len(bundle.sources),
+                    **_feedback_metadata(reliability_defaults, feedback_metadata),
+                    "reliability_defaults": reliability_defaults,
                 },
-            ),
+            )
+        )
+    events.extend(
+        [
             AuditEvent(
-                sequence=2,
+                sequence=len(events) + 1,
                 event_type="sources_ranked",
                 title="Sources ranked",
                 detail="Ranked sources through the deterministic evidence scorer.",
@@ -689,7 +796,7 @@ def _initial_audit_trace(bundle: SourceBundle, decision: AutomationDecision) -> 
                 },
             ),
             AuditEvent(
-                sequence=3,
+                sequence=len(events) + 2,
                 event_type="decision_recorded",
                 title="Initial decision recorded",
                 detail="The deterministic decision engine produced the first loop decision.",
@@ -702,16 +809,37 @@ def _initial_audit_trace(bundle: SourceBundle, decision: AutomationDecision) -> 
             ),
         ]
     )
+    return AuditTrace(events=events)
 
 
 def _metadata(
     as_of: date,
     max_iterations: int,
     execution_mode: str = EXECUTION_MODE,
-) -> dict[str, str | int]:
+    reliability_defaults: dict[str, float] | None = None,
+    feedback_metadata: dict[str, Any] | None = None,
+) -> dict[str, str | int | bool]:
+    learned_defaults = reliability_defaults or {}
     return {
         "agent_loop_version": AGENT_LOOP_VERSION,
         "execution_mode": execution_mode,
         "as_of": as_of.isoformat(),
         "max_iterations": max_iterations,
+        **_feedback_metadata(learned_defaults, feedback_metadata),
     }
+
+
+def _feedback_metadata(
+    reliability_defaults: dict[str, float],
+    feedback_metadata: dict[str, Any] | None,
+) -> dict[str, int | bool | str]:
+    metadata = feedback_metadata or {}
+    fields: dict[str, int | bool | str] = {
+        "uses_learned_feedback": bool(reliability_defaults),
+        "reliability_default_count": len(reliability_defaults),
+        "feedback_event_count": int(metadata.get("feedback_event_count", 0)),
+        "source_outcome_count": int(metadata.get("source_outcome_count", 0)),
+    }
+    if policy := metadata.get("policy"):
+        fields["feedback_policy"] = str(policy)
+    return fields

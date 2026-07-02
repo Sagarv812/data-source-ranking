@@ -64,6 +64,30 @@ def test_decide_returns_auto_handoff_decision() -> None:
     assert decision.metadata["decision_engine"] == "rule_based_v1"
 
 
+def test_decide_accepts_feedback_derived_reliability_defaults() -> None:
+    bundle = load_source_bundle("fixtures/bundles/acme_auto_handoff.json")
+
+    decision = decide(
+        bundle,
+        reliability_defaults={
+            "source_type:crm_note": 0.81,
+            "source_system:salesforce": 0.05,
+        },
+    )
+    ranked_crm = next(
+        ranked
+        for ranked in decision.ranked_bundle.ranked_sources
+        if ranked.source_id == "src_acme_recent_crm_note"
+    )
+
+    assert decision.metadata["uses_learned_feedback"] is True
+    assert decision.metadata["reliability_default_count"] == 2
+    assert ranked_crm.scores["historical_reliability"].score == 0.86
+    assert ranked_crm.scores["historical_reliability"].metadata[
+        "uses_learned_feedback"
+    ] is True
+
+
 def test_decide_returns_context_request_decision() -> None:
     bundle = load_source_bundle("fixtures/bundles/beta_needs_owner_validation.json")
 

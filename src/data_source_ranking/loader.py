@@ -7,6 +7,7 @@ from pydantic import BaseModel, ValidationError
 
 from data_source_ranking.agents.retrieval import SimulatedRetrievalFixture
 from data_source_ranking.agents.state import OwnerResponseFixture
+from data_source_ranking.feedback import FeedbackFixture
 from data_source_ranking.models import Source, SourceBundle, SourceBundleFixture, SourceFixture
 from data_source_ranking.review_responses import ReviewResponseFixture
 
@@ -69,6 +70,10 @@ def load_simulated_retrieval_fixture(path: str | Path) -> SimulatedRetrievalFixt
     return _validate_fixture(Path(path), SimulatedRetrievalFixture)
 
 
+def load_feedback_fixture(path: str | Path) -> FeedbackFixture:
+    return _validate_fixture(Path(path), FeedbackFixture)
+
+
 def load_simulated_retrieval_sources(path: str | Path) -> list[Source]:
     retrieval_path = Path(path)
     fixture = load_simulated_retrieval_fixture(retrieval_path)
@@ -100,6 +105,16 @@ def is_simulated_retrieval_fixture(path: str | Path) -> bool:
         "bundle_id" in data
         and isinstance(data.get("query"), dict)
         and isinstance(data.get("retrieved_source_refs"), list)
+    )
+
+
+def is_feedback_fixture(path: str | Path) -> bool:
+    data = _load_json(Path(path))
+    event = data.get("event")
+    return (
+        isinstance(event, dict)
+        and "source_outcomes" in event
+        and "decision_outcome" in event
     )
 
 

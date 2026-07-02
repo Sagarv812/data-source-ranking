@@ -11,12 +11,22 @@ from data_source_ranking.agents.loop import run_agent as run_agent_file
 from data_source_ranking.agents.state import AgentRunResult
 from data_source_ranking.decision_engine import decide as decide_file
 from data_source_ranking.decisions import AutomationDecision
+from data_source_ranking.feedback import (
+    DEFAULT_FEEDBACK_STORE_PATH,
+    FeedbackEvent,
+    ReliabilitySnapshot,
+    append_feedback_event,
+    build_reliability_snapshot,
+    load_feedback_events,
+)
 from data_source_ranking.loader import (
     FixtureLoadError,
     is_bundle_fixture,
+    is_feedback_fixture,
     is_owner_response_fixture,
     is_review_response_fixture,
     is_simulated_retrieval_fixture,
+    load_feedback_fixture,
     load_owner_response_fixture,
     load_review_response_fixture,
     load_simulated_retrieval_fixture,
@@ -34,6 +44,8 @@ from data_source_ranking.review_responses import (
 from data_source_ranking.scoring.common import DEFAULT_AS_OF
 
 app = typer.Typer(help="Evidence-quality ranking prototype CLI.")
+feedback_app = typer.Typer(help="Record feedback and inspect reliability snapshots.")
+app.add_typer(feedback_app, name="feedback")
 
 
 @app.callback()
@@ -53,9 +65,18 @@ def rank_source(
         str,
         typer.Option("--as-of", help="Evaluation date used for freshness scoring."),
     ] = DEFAULT_AS_OF.isoformat(),
+    feedback_store: Annotated[
+        Path | None,
+        typer.Option("--feedback-store", help="Feedback JSONL store for learned reliability."),
+    ] = None,
 ) -> None:
     fixture = load_source_fixture(path)
-    ranked = rank_source_file(fixture.context_need, fixture.source, as_of=_parse_as_of(as_of))
+    ranked = rank_source_file(
+        fixture.context_need,
+        fixture.source,
+        as_of=_parse_as_of(as_of),
+        reliability_defaults=_feedback_reliability_defaults(feedback_store),
+    )
     if as_json:
         _print_json(ranked)
         return
@@ -75,9 +96,17 @@ def rank_bundle(
         str,
         typer.Option("--as-of", help="Evaluation date used for freshness scoring."),
     ] = DEFAULT_AS_OF.isoformat(),
+    feedback_store: Annotated[
+        Path | None,
+        typer.Option("--feedback-store", help="Feedback JSONL store for learned reliability."),
+    ] = None,
 ) -> None:
     bundle = load_source_bundle(path)
-    ranked = rank_bundle_file(bundle, as_of=_parse_as_of(as_of))
+    ranked = rank_bundle_file(
+        bundle,
+        as_of=_parse_as_of(as_of),
+        reliability_defaults=_feedback_reliability_defaults(feedback_store),
+    )
     if as_json:
         _print_json(ranked)
         return
@@ -97,9 +126,17 @@ def decide(
         str,
         typer.Option("--as-of", help="Evaluation date used for freshness scoring."),
     ] = DEFAULT_AS_OF.isoformat(),
+    feedback_store: Annotated[
+        Path | None,
+        typer.Option("--feedback-store", help="Feedback JSONL store for learned reliability."),
+    ] = None,
 ) -> None:
     bundle = load_source_bundle(path)
-    decision = decide_file(bundle, as_of=_parse_as_of(as_of))
+    decision = decide_file(
+        bundle,
+        as_of=_parse_as_of(as_of),
+        reliability_defaults=_feedback_reliability_defaults(feedback_store),
+    )
     if as_json:
         _print_json(decision)
         return
@@ -172,6 +209,10 @@ def run_agent(
             help="Simulated-retrieval fixture to apply before re-running the loop.",
         ),
     ] = None,
+    feedback_store: Annotated[
+        Path | None,
+        typer.Option("--feedback-store", help="Feedback JSONL store for learned reliability."),
+    ] = None,
 ) -> None:
     if max_iterations < 1:
         typer.echo("Invalid --max-iterations. Use a value of 1 or greater.", err=True)
@@ -226,6 +267,7 @@ def run_agent(
         or (simulated_retrieval_fixture.as_of if simulated_retrieval_fixture else None)
         or DEFAULT_AS_OF.isoformat()
     )
+    feedback_snapshot = _feedback_snapshot(feedback_store)
     result = run_agent_file(
         bundle,
         as_of=_parse_as_of(effective_as_of),
@@ -235,6 +277,10 @@ def run_agent(
         ),
         simulated_retrieval=simulated_retrieval_fixture,
         retrieved_sources=retrieved_sources,
+        reliability_defaults=(
+            feedback_snapshot.reliability_defaults if feedback_snapshot else None
+        ),
+        feedback_metadata=feedback_snapshot.metadata if feedback_snapshot else None,
     )
     if as_json:
         _print_json(result)
@@ -243,11 +289,46 @@ def run_agent(
     typer.echo(_format_agent_run_result(result))
 
 
+@feedback_app.command("add", help="Append a fixture-backed feedback event to the local store.")
+def feedback_add(
+    path: Annotated[Path, typer.Argument(exists=True, file_okay=True, dir_okay=False)],
+    store_path: Annotated[
+        Path,
+        typer.Option("--store-path", help="Feedback JSONL store path."),
+    ] = DEFAULT_FEEDBACK_STORE_PATH,
+    as_json: Annotated[bool, typer.Option("--json", help="Print appended event as JSON.")] = False,
+) -> None:
+    fixture = load_feedback_fixture(path)
+    event = append_feedback_event(fixture.event, store_path)
+    if as_json:
+        _print_json(event)
+        return
+
+    typer.echo(_format_feedback_add_result(event, store_path))
+
+
+@feedback_app.command("snapshot", help="Build a reliability snapshot from stored feedback.")
+def feedback_snapshot(
+    store_path: Annotated[
+        Path,
+        typer.Option("--store-path", help="Feedback JSONL store path."),
+    ] = DEFAULT_FEEDBACK_STORE_PATH,
+    as_json: Annotated[bool, typer.Option("--json", help="Print snapshot as JSON.")] = False,
+) -> None:
+    events = load_feedback_events(store_path)
+    snapshot = build_reliability_snapshot(events)
+    if as_json:
+        _print_json(snapshot)
+        return
+
+    typer.echo(_format_reliability_snapshot(snapshot, store_path))
+
+
 @app.command(
     "validate-fixtures",
     help=(
-        "Validate source, bundle, review, owner-response, and simulated-retrieval "
-        "fixture JSON files."
+        "Validate source, bundle, review, owner-response, simulated-retrieval, "
+        "and feedback fixture JSON files."
     ),
 )
 def validate_fixtures(
@@ -263,11 +344,15 @@ def validate_fixtures(
     review_count = 0
     owner_response_count = 0
     simulated_retrieval_count = 0
+    feedback_count = 0
     errors: list[str] = []
 
     for fixture_path in fixture_paths:
         try:
-            if is_simulated_retrieval_fixture(fixture_path):
+            if is_feedback_fixture(fixture_path):
+                load_feedback_fixture(fixture_path)
+                feedback_count += 1
+            elif is_simulated_retrieval_fixture(fixture_path):
                 load_simulated_retrieval_fixture(fixture_path)
                 simulated_retrieval_count += 1
             elif is_owner_response_fixture(fixture_path):
@@ -295,7 +380,8 @@ def validate_fixtures(
         f"Validated {len(fixture_paths)} fixture file(s): "
         f"{source_count} source, {bundle_count} bundle, {review_count} review, "
         f"{owner_response_count} owner response, "
-        f"{simulated_retrieval_count} simulated retrieval."
+        f"{simulated_retrieval_count} simulated retrieval, "
+        f"{feedback_count} feedback."
     )
 
 
@@ -304,7 +390,9 @@ def _print_json(
     | RankedBundle
     | AutomationDecision
     | ReviewResponseResult
-    | AgentRunResult,
+    | AgentRunResult
+    | FeedbackEvent
+    | ReliabilitySnapshot,
 ) -> None:
     typer.echo(json.dumps(result.model_dump(mode="json"), indent=2, sort_keys=True))
 
@@ -460,6 +548,59 @@ def _format_review_response_result(
     return "\n".join(lines)
 
 
+def _format_feedback_add_result(event: FeedbackEvent, store_path: Path) -> str:
+    return "\n".join(
+        [
+            f"Feedback stored: {event.id}",
+            f"Store: {store_path}",
+            f"Bundle: {event.bundle_id}",
+            f"Decision: {event.decision.value}",
+            f"Outcome: {event.decision_outcome.value}",
+            "",
+            "Source outcomes:",
+            *[
+                (
+                    f"- {outcome.source_id}: {outcome.outcome.value} "
+                    f"({outcome.source_type.value}, {outcome.source_system.value})"
+                )
+                for outcome in event.source_outcomes
+            ],
+        ]
+    )
+
+
+def _format_reliability_snapshot(snapshot: ReliabilitySnapshot, store_path: Path) -> str:
+    lines = [
+        f"Feedback store: {store_path}",
+        f"Feedback events: {snapshot.metadata['feedback_event_count']}",
+        f"Source outcomes: {snapshot.metadata['source_outcome_count']}",
+        "",
+        "Learned defaults:",
+    ]
+    if snapshot.reliability_defaults:
+        lines.extend(
+            f"- {key}: {value:.2f}"
+            for key, value in sorted(snapshot.reliability_defaults.items())
+        )
+    else:
+        lines.append("- none")
+
+    lines.extend(["", "Updates:"])
+    if snapshot.updates:
+        for update in snapshot.updates:
+            lines.extend(
+                [
+                    f"- {update.key}: {update.static_value:.2f} -> "
+                    f"{update.learned_value:.2f} ({update.delta:+.2f})",
+                    "  reasons:",
+                    *_indented_lines(update.reasons),
+                ]
+            )
+    else:
+        lines.append("- none")
+    return "\n".join(lines)
+
+
 def _format_agent_run_result(result: AgentRunResult) -> str:
     action = result.steps[-1].action if result.steps else None
     lines = [
@@ -468,6 +609,7 @@ def _format_agent_run_result(result: AgentRunResult) -> str:
         f"Final decision: {result.final_decision.decision.value}",
         f"Stop reason: {result.stop_reason.value}",
         f"Execution mode: {result.metadata['execution_mode']}",
+        f"Learned feedback: {_learned_feedback_text(result)}",
         "",
         "Selected action:",
     ]
@@ -606,6 +748,26 @@ def _fixture_paths(path: Path) -> list[Path]:
     if path.is_file():
         return [path] if path.suffix == ".json" else []
     return sorted(file_path for file_path in path.rglob("*.json") if file_path.is_file())
+
+
+def _feedback_reliability_defaults(feedback_store: Path | None) -> dict[str, float] | None:
+    snapshot = _feedback_snapshot(feedback_store)
+    return snapshot.reliability_defaults if snapshot else None
+
+
+def _feedback_snapshot(feedback_store: Path | None) -> ReliabilitySnapshot | None:
+    if feedback_store is None:
+        return None
+    return build_reliability_snapshot(load_feedback_events(feedback_store))
+
+
+def _learned_feedback_text(result: AgentRunResult) -> str:
+    if result.metadata.get("uses_learned_feedback"):
+        return (
+            f"applied ({result.metadata['reliability_default_count']} defaults, "
+            f"{result.metadata['feedback_event_count']} events)"
+        )
+    return "not applied"
 
 
 def _resolve_review_bundle_path(review_path: Path, bundle_path_value: str) -> Path:

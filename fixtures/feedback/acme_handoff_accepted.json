@@ -1,0 +1,30 @@
+{
+  "event": {
+    "id": "feedback_acme_handoff_accepted",
+    "created_at": "2026-06-21T10:00:00",
+    "bundle_id": "bundle_acme_auto_handoff",
+    "decision": "auto_handoff",
+    "decision_outcome": "accepted",
+    "selected_source_ids": [
+      "src_acme_recent_crm_note"
+    ],
+    "rejected_source_ids": [],
+    "source_outcomes": [
+      {
+        "source_id": "src_acme_recent_crm_note",
+        "source_type": "crm_note",
+        "source_system": "salesforce",
+        "outcome": "accepted",
+        "reason": "Generated handoff context was accepted for the Acme renewal workflow."
+      }
+    ],
+    "generated_handoff_accepted": true,
+    "correction_notes": null,
+    "metadata": {
+      "story": "Accepted auto-handoff context gives a small positive reliability signal for CRM notes from Salesforce."
+    }
+  },
+  "metadata": {
+    "scenario": "Accepted auto-handoff feedback for the Acme bundle."
+  }
+}

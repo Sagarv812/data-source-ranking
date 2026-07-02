@@ -361,6 +361,86 @@ def test_run_agent_command_can_print_json() -> None:
     assert payload["audit_trace"]["events"][-1]["event_type"] == "action_selected"
 
 
+def test_run_agent_command_uses_feedback_store_for_audited_reliability(
+    tmp_path: Path,
+) -> None:
+    store_path = tmp_path / "feedback_events.jsonl"
+    runner.invoke(
+        app,
+        [
+            "feedback",
+            "add",
+            "fixtures/feedback/acme_handoff_accepted.json",
+            "--store-path",
+            str(store_path),
+        ],
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "run-agent",
+            "fixtures/bundles/acme_auto_handoff.json",
+            "--feedback-store",
+            str(store_path),
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    ranked_crm = next(
+        source
+        for source in payload["initial_decision"]["ranked_bundle"]["ranked_sources"]
+        if source["source_id"] == "src_acme_recent_crm_note"
+    )
+    reliability = ranked_crm["scores"]["historical_reliability"]
+    feedback_event = payload["audit_trace"]["events"][1]
+    assert payload["metadata"]["uses_learned_feedback"] is True
+    assert payload["metadata"]["reliability_default_count"] == 2
+    assert payload["metadata"]["feedback_event_count"] == 1
+    assert payload["metadata"]["source_outcome_count"] == 1
+    assert reliability["score"] == 0.86
+    assert reliability["metadata"]["uses_learned_feedback"] is True
+    assert [event["event_type"] for event in payload["audit_trace"]["events"]] == [
+        "bundle_loaded",
+        "feedback_snapshot_applied",
+        "sources_ranked",
+        "decision_recorded",
+        "action_selected",
+    ]
+    assert feedback_event["metadata"]["reliability_defaults"] == {
+        "source_system:salesforce": 0.05,
+        "source_type:crm_note": 0.81,
+    }
+
+
+def test_run_agent_command_missing_feedback_store_has_no_feedback_audit_event(
+    tmp_path: Path,
+) -> None:
+    result = runner.invoke(
+        app,
+        [
+            "run-agent",
+            "fixtures/bundles/acme_auto_handoff.json",
+            "--feedback-store",
+            str(tmp_path / "missing.jsonl"),
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["metadata"]["uses_learned_feedback"] is False
+    assert payload["metadata"]["reliability_default_count"] == 0
+    assert [event["event_type"] for event in payload["audit_trace"]["events"]] == [
+        "bundle_loaded",
+        "sources_ranked",
+        "decision_recorded",
+        "action_selected",
+    ]
+
+
 def test_run_agent_command_applies_owner_response_fixture() -> None:
     result = runner.invoke(
         app,
@@ -814,6 +894,250 @@ def test_rank_source_command_rejects_invalid_as_of_date() -> None:
     assert "Invalid --as-of date" in result.stderr
 
 
+def test_rank_source_command_uses_feedback_store_for_reliability(tmp_path: Path) -> None:
+    store_path = tmp_path / "feedback_events.jsonl"
+    add_result = runner.invoke(
+        app,
+        [
+            "feedback",
+            "add",
+            "fixtures/feedback/acme_handoff_accepted.json",
+            "--store-path",
+            str(store_path),
+        ],
+    )
+    assert add_result.exit_code == 0
+
+    result = runner.invoke(
+        app,
+        [
+            "rank-source",
+            "fixtures/strong/acme_recent_crm_note.json",
+            "--feedback-store",
+            str(store_path),
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    reliability = payload["scores"]["historical_reliability"]
+    assert reliability["score"] == 0.86
+    assert reliability["metadata"]["uses_learned_feedback"] is True
+    assert reliability["metadata"]["base_score_source"] == "override"
+    assert reliability["metadata"]["system_modifier_source"] == "override"
+
+
+def test_rank_bundle_command_uses_feedback_store_for_reliability(tmp_path: Path) -> None:
+    store_path = tmp_path / "feedback_events.jsonl"
+    runner.invoke(
+        app,
+        [
+            "feedback",
+            "add",
+            "fixtures/feedback/acme_handoff_accepted.json",
+            "--store-path",
+            str(store_path),
+        ],
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "rank-bundle",
+            "fixtures/bundles/acme_auto_handoff.json",
+            "--feedback-store",
+            str(store_path),
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    ranked_crm = next(
+        source
+        for source in payload["ranked_sources"]
+        if source["source_id"] == "src_acme_recent_crm_note"
+    )
+    reliability = ranked_crm["scores"]["historical_reliability"]
+    assert reliability["score"] == 0.86
+    assert reliability["metadata"]["uses_learned_feedback"] is True
+
+
+def test_decide_command_uses_feedback_store_for_embedded_ranked_bundle(
+    tmp_path: Path,
+) -> None:
+    store_path = tmp_path / "feedback_events.jsonl"
+    runner.invoke(
+        app,
+        [
+            "feedback",
+            "add",
+            "fixtures/feedback/acme_handoff_accepted.json",
+            "--store-path",
+            str(store_path),
+        ],
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "decide",
+            "fixtures/bundles/acme_auto_handoff.json",
+            "--feedback-store",
+            str(store_path),
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    ranked_crm = next(
+        source
+        for source in payload["ranked_bundle"]["ranked_sources"]
+        if source["source_id"] == "src_acme_recent_crm_note"
+    )
+    reliability = ranked_crm["scores"]["historical_reliability"]
+    assert payload["metadata"]["uses_learned_feedback"] is True
+    assert payload["metadata"]["reliability_default_count"] == 2
+    assert reliability["score"] == 0.86
+    assert reliability["metadata"]["uses_learned_feedback"] is True
+
+
+def test_feedback_store_option_allows_missing_store_without_score_change(
+    tmp_path: Path,
+) -> None:
+    result = runner.invoke(
+        app,
+        [
+            "rank-source",
+            "fixtures/strong/acme_recent_crm_note.json",
+            "--feedback-store",
+            str(tmp_path / "missing.jsonl"),
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    reliability = payload["scores"]["historical_reliability"]
+    assert reliability["score"] == 0.82
+    assert reliability["metadata"]["uses_learned_feedback"] is False
+
+
+def test_feedback_add_command_appends_fixture_event(tmp_path: Path) -> None:
+    store_path = tmp_path / "feedback_events.jsonl"
+
+    result = runner.invoke(
+        app,
+        [
+            "feedback",
+            "add",
+            "fixtures/feedback/acme_handoff_accepted.json",
+            "--store-path",
+            str(store_path),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Feedback stored: feedback_acme_handoff_accepted" in result.stdout
+    assert "Bundle: bundle_acme_auto_handoff" in result.stdout
+    assert "Outcome: accepted" in result.stdout
+    assert "src_acme_recent_crm_note: accepted" in result.stdout
+    lines = store_path.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 1
+    assert json.loads(lines[0])["id"] == "feedback_acme_handoff_accepted"
+
+
+def test_feedback_add_command_can_print_json(tmp_path: Path) -> None:
+    store_path = tmp_path / "feedback_events.jsonl"
+
+    result = runner.invoke(
+        app,
+        [
+            "feedback",
+            "add",
+            "fixtures/feedback/acme_handoff_accepted.json",
+            "--store-path",
+            str(store_path),
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["id"] == "feedback_acme_handoff_accepted"
+    assert payload["source_outcomes"][0]["source_type"] == "crm_note"
+
+
+def test_feedback_snapshot_command_prints_readable_summary(tmp_path: Path) -> None:
+    store_path = tmp_path / "feedback_events.jsonl"
+    add_result = runner.invoke(
+        app,
+        [
+            "feedback",
+            "add",
+            "fixtures/feedback/acme_handoff_accepted.json",
+            "--store-path",
+            str(store_path),
+        ],
+    )
+    assert add_result.exit_code == 0
+
+    result = runner.invoke(
+        app,
+        ["feedback", "snapshot", "--store-path", str(store_path)],
+    )
+
+    assert result.exit_code == 0
+    assert "Feedback events: 1" in result.stdout
+    assert "Source outcomes: 1" in result.stdout
+    assert "Learned defaults:" in result.stdout
+    assert "source_type:crm_note: 0.81" in result.stdout
+    assert "source_system:salesforce: 0.05" in result.stdout
+    assert "1 accepted source outcome(s)" in result.stdout
+
+
+def test_feedback_snapshot_command_can_print_json(tmp_path: Path) -> None:
+    store_path = tmp_path / "feedback_events.jsonl"
+    runner.invoke(
+        app,
+        [
+            "feedback",
+            "add",
+            "fixtures/feedback/acme_handoff_accepted.json",
+            "--store-path",
+            str(store_path),
+        ],
+    )
+
+    result = runner.invoke(
+        app,
+        ["feedback", "snapshot", "--store-path", str(store_path), "--json"],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["reliability_defaults"] == {
+        "source_system:salesforce": 0.05,
+        "source_type:crm_note": 0.81,
+    }
+    assert payload["metadata"]["feedback_event_count"] == 1
+    assert payload["metadata"]["source_outcome_count"] == 1
+
+
+def test_feedback_snapshot_command_handles_missing_store(tmp_path: Path) -> None:
+    result = runner.invoke(
+        app,
+        ["feedback", "snapshot", "--store-path", str(tmp_path / "missing.jsonl")],
+    )
+
+    assert result.exit_code == 0
+    assert "Feedback events: 0" in result.stdout
+    assert "Learned defaults:" in result.stdout
+    assert "- none" in result.stdout
+
+
 def test_validate_fixtures_command_prints_counts() -> None:
     result = runner.invoke(app, ["validate-fixtures", "fixtures"])
 
@@ -823,7 +1147,8 @@ def test_validate_fixtures_command_prints_counts() -> None:
     assert " bundle, " in result.stdout
     assert " review, " in result.stdout
     assert " owner response, " in result.stdout
-    assert " simulated retrieval." in result.stdout
+    assert " simulated retrieval, " in result.stdout
+    assert " feedback." in result.stdout
 
 
 def test_validate_fixtures_command_fails_for_invalid_fixture(tmp_path: Path) -> None:

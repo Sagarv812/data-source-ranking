@@ -92,8 +92,93 @@ def test_run_agent_returns_public_agent_run_result_for_loaded_bundle() -> None:
         "execution_mode": EXECUTION_MODE,
         "as_of": "2026-06-21",
         "max_iterations": 3,
+        "uses_learned_feedback": False,
+        "reliability_default_count": 0,
+        "feedback_event_count": 0,
+        "source_outcome_count": 0,
     }
     assert payload["state"]["metadata"] == payload["metadata"]
+
+
+def test_run_agent_applies_feedback_snapshot_to_initial_decision_and_audit() -> None:
+    bundle = load_source_bundle("fixtures/bundles/acme_auto_handoff.json")
+    reliability_defaults = {
+        "source_system:salesforce": 0.05,
+        "source_type:crm_note": 0.81,
+    }
+
+    result = run_agent(
+        bundle,
+        as_of=date(2026, 6, 21),
+        reliability_defaults=reliability_defaults,
+        feedback_metadata={
+            "feedback_event_count": 1,
+            "source_outcome_count": 1,
+            "policy": "conservative_feedback_v1",
+        },
+    )
+    payload = result.model_dump(mode="json")
+    ranked_crm = next(
+        source
+        for source in payload["initial_decision"]["ranked_bundle"]["ranked_sources"]
+        if source["source_id"] == "src_acme_recent_crm_note"
+    )
+    feedback_event = payload["audit_trace"]["events"][1]
+
+    assert ranked_crm["scores"]["historical_reliability"]["score"] == 0.86
+    assert ranked_crm["scores"]["historical_reliability"]["metadata"][
+        "uses_learned_feedback"
+    ] is True
+    assert payload["metadata"]["uses_learned_feedback"] is True
+    assert payload["metadata"]["reliability_default_count"] == 2
+    assert payload["metadata"]["feedback_event_count"] == 1
+    assert [event["event_type"] for event in payload["audit_trace"]["events"]] == [
+        "bundle_loaded",
+        "feedback_snapshot_applied",
+        "sources_ranked",
+        "decision_recorded",
+        "action_selected",
+    ]
+    assert feedback_event["action_type"] == "record_feedback"
+    assert feedback_event["metadata"]["reliability_defaults"] == reliability_defaults
+    assert feedback_event["metadata"]["feedback_policy"] == "conservative_feedback_v1"
+
+
+def test_run_agent_preserves_feedback_defaults_across_simulated_retrieval_rerun() -> None:
+    fixture = load_simulated_retrieval_fixture(
+        "fixtures/simulated_retrieval/gammahealth_retrieves_validated_context.json"
+    )
+    retrieved_sources = load_simulated_retrieval_sources(
+        "fixtures/simulated_retrieval/gammahealth_retrieves_validated_context.json"
+    )
+    bundle = load_source_bundle("fixtures/bundles/gamma_blocked.json")
+
+    result = run_agent(
+        bundle,
+        as_of=date.fromisoformat(fixture.as_of or "2026-06-21"),
+        simulated_retrieval=fixture,
+        retrieved_sources=retrieved_sources,
+        reliability_defaults={"source_system:human": 0.08},
+        feedback_metadata={
+            "feedback_event_count": 3,
+            "source_outcome_count": 7,
+        },
+    )
+    payload = result.model_dump(mode="json")
+    retrieved_ranked = next(
+        source
+        for source in payload["final_decision"]["ranked_bundle"]["ranked_sources"]
+        if source["source_id"] == "src_gammahealth_human_validated_context"
+    )
+    reliability = retrieved_ranked["scores"]["historical_reliability"]
+
+    assert payload["final_decision"]["decision"] == "auto_handoff"
+    assert payload["metadata"]["execution_mode"] == "simulated_retrieval_rerun"
+    assert payload["metadata"]["uses_learned_feedback"] is True
+    assert payload["metadata"]["feedback_event_count"] == 3
+    assert reliability["score"] == 0.98
+    assert reliability["metadata"]["system_modifier_source"] == "override"
+    assert reliability["metadata"]["uses_learned_feedback"] is True
 
 
 def test_run_agent_uses_agent_result_wrapper_without_parallel_decision_shape() -> None:

@@ -47,12 +47,14 @@ fixtures/bundles/
 fixtures/reviews/
 fixtures/owner_responses/
 fixtures/simulated_retrieval/
+fixtures/feedback/
 ```
 
 Use strength folders for single-source scenarios. Use `bundles/` for multi-source scenarios where corroboration, sensitive evidence overlap, owner resolution, or automation decisions will eventually be tested.
 Use `reviews/` for deterministic examples of prompt responses applied to bundle decisions.
 Use `owner_responses/` for fixture-backed owner validation answers.
 Use `simulated_retrieval/` for deterministic retrieval hits that point at existing source fixtures.
+Use `feedback/` for fixture-backed feedback events that can be appended to the local feedback store.
 
 ## Fixture Index
 
@@ -138,6 +140,14 @@ Simulated-retrieval fixtures describe deterministic retrieval attempts. They sto
 | --- | --- | --- |
 | `fixtures/simulated_retrieval/gammahealth_retrieves_validated_context.json` | `fixtures/strong/gammahealth_human_validated_context.json` | Retrieval can find human-validated GammaHealth context that improves the blocked bundle when appended and re-ranked. |
 | `fixtures/simulated_retrieval/gammahealth_no_retrieval_hit.json` | none | Retrieval can find no additional evidence and leave the blocked GammaHealth case blocked with a clear stop reason. |
+
+### Feedback
+
+Feedback fixtures wrap one `FeedbackEvent`. They are consumed by `data-source-ranking feedback add` and can later be summarized with `data-source-ranking feedback snapshot`.
+
+| Fixture | Feedback | What It Proves |
+| --- | --- | --- |
+| `fixtures/feedback/acme_handoff_accepted.json` | Accepted Acme auto-handoff context using a Salesforce CRM note | Feedback can create a small positive reliability signal for CRM notes and Salesforce source-system evidence. |
 
 ## Fictional Clients
 

@@ -25,6 +25,7 @@ def source_fixture_paths() -> list[Path]:
         and "reviews" not in path.parts
         and "owner_responses" not in path.parts
         and "simulated_retrieval" not in path.parts
+        and "feedback" not in path.parts
         and path.name != "README.md"
     )
 
@@ -287,3 +288,39 @@ def test_rank_source_respects_reliability_overrides() -> None:
     )
 
     assert ranked.scores[RankingDimension.HISTORICAL_RELIABILITY].score == 0.68
+
+
+def test_reliability_overrides_cannot_rescue_sensitive_source() -> None:
+    fixture = load_source_fixture("fixtures/weak/deltabank_unverified_partner_material.json")
+
+    ranked = rank_source(
+        fixture.context_need,
+        fixture.source,
+        reliability_defaults={
+            "source_type:partner_material": 0.9,
+            "source_system:partner_portal": 0.08,
+        },
+    )
+
+    assert ranked.tier is Tier.WEAK
+    assert WeakPointType.SENSITIVE_SOURCE in {point.type for point in ranked.weak_points}
+    assert ranked.scores[RankingDimension.HISTORICAL_RELIABILITY].score == 0.98
+
+
+def test_reliability_overrides_cannot_rescue_unsupported_inference() -> None:
+    fixture = load_source_fixture("fixtures/weak/acme_unsupported_inferred_claim.json")
+
+    ranked = rank_source(
+        fixture.context_need,
+        fixture.source,
+        reliability_defaults={
+            "source_type:crm_note": 0.9,
+            "source_system:salesforce": 0.08,
+        },
+    )
+
+    assert ranked.tier is Tier.WEAK
+    assert WeakPointType.UNSUPPORTED_INFERENCE in {
+        point.type for point in ranked.weak_points
+    }
+    assert ranked.scores[RankingDimension.HISTORICAL_RELIABILITY].score == 0.98

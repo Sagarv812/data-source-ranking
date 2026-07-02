@@ -6,12 +6,15 @@ import pytest
 
 from data_source_ranking.agents.retrieval import SimulatedRetrievalFixture
 from data_source_ranking.agents.state import OwnerResponseFixture
+from data_source_ranking.feedback import FeedbackFixture
 from data_source_ranking.loader import (
     FixtureLoadError,
     is_bundle_fixture,
+    is_feedback_fixture,
     is_owner_response_fixture,
     is_review_response_fixture,
     is_simulated_retrieval_fixture,
+    load_feedback_fixture,
     load_owner_response_fixture,
     load_review_response_fixture,
     load_simulated_retrieval_fixture,
@@ -43,6 +46,11 @@ def scenario_paths() -> list[Path]:
 
 @pytest.mark.parametrize("path", scenario_paths(), ids=str)
 def test_all_json_scenarios_validate(path: Path) -> None:
+    if "feedback" in path.parts:
+        feedback_fixture = load_feedback_fixture(path)
+        assert isinstance(feedback_fixture, FeedbackFixture)
+        return
+
     if "simulated_retrieval" in path.parts:
         retrieval_fixture = load_simulated_retrieval_fixture(path)
         assert isinstance(retrieval_fixture, SimulatedRetrievalFixture)
@@ -80,6 +88,7 @@ def test_all_source_scenarios_include_expected_tier(path: Path) -> None:
         or "reviews" in path.parts
         or "owner_responses" in path.parts
         or "simulated_retrieval" in path.parts
+        or "feedback" in path.parts
     ):
         return
 
@@ -133,6 +142,7 @@ def test_review_fixture_detection_uses_json_shape() -> None:
     assert not is_review_response_fixture(
         "fixtures/simulated_retrieval/gammahealth_retrieves_validated_context.json"
     )
+    assert not is_review_response_fixture("fixtures/feedback/acme_handoff_accepted.json")
 
 
 def test_owner_response_fixture_detection_uses_json_shape() -> None:
@@ -145,6 +155,7 @@ def test_owner_response_fixture_detection_uses_json_shape() -> None:
     assert not is_owner_response_fixture(
         "fixtures/simulated_retrieval/gammahealth_retrieves_validated_context.json"
     )
+    assert not is_owner_response_fixture("fixtures/feedback/acme_handoff_accepted.json")
 
 
 def test_simulated_retrieval_fixture_detection_uses_json_shape() -> None:
@@ -159,6 +170,20 @@ def test_simulated_retrieval_fixture_detection_uses_json_shape() -> None:
     )
     assert not is_simulated_retrieval_fixture("fixtures/bundles/acme_auto_handoff.json")
     assert not is_simulated_retrieval_fixture("fixtures/strong/acme_recent_crm_note.json")
+    assert not is_simulated_retrieval_fixture("fixtures/feedback/acme_handoff_accepted.json")
+
+
+def test_feedback_fixture_detection_uses_json_shape() -> None:
+    assert is_feedback_fixture("fixtures/feedback/acme_handoff_accepted.json")
+    assert not is_feedback_fixture("fixtures/reviews/similar_client_use_directional.json")
+    assert not is_feedback_fixture(
+        "fixtures/owner_responses/beta_lina_validates_old_proposal.json"
+    )
+    assert not is_feedback_fixture(
+        "fixtures/simulated_retrieval/gammahealth_retrieves_validated_context.json"
+    )
+    assert not is_feedback_fixture("fixtures/bundles/acme_auto_handoff.json")
+    assert not is_feedback_fixture("fixtures/strong/acme_recent_crm_note.json")
 
 
 def test_malformed_json_raises_fixture_load_error(tmp_path: Path) -> None:
@@ -260,6 +285,7 @@ def test_non_strong_scenarios_include_expected_weak_points(path: Path) -> None:
         or "reviews" in path.parts
         or "owner_responses" in path.parts
         or "simulated_retrieval" in path.parts
+        or "feedback" in path.parts
     ):
         return
 
@@ -277,6 +303,7 @@ def test_similar_client_sources_include_similarity_reason(path: Path) -> None:
         or "reviews" in path.parts
         or "owner_responses" in path.parts
         or "simulated_retrieval" in path.parts
+        or "feedback" in path.parts
     ):
         return
 

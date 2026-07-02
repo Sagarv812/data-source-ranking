@@ -15,6 +15,7 @@ Use this prototype as an inspectable trust gate. It scores normalized source rec
 - Structured blocked output for safety-stop cases.
 - Review-response validation and deterministic transitions through `apply-review`.
 - A bounded `run-agent` loop that can apply owner-response or simulated-retrieval fixtures, re-run the decision, and record an audit timeline.
+- Feedback event models, local JSONL persistence, conservative reliability snapshots, and feedback-aware agent audit output.
 - Synthetic source, bundle, review, owner-response, and simulated-retrieval fixtures for repeatable demos.
 
 Source tiers describe individual evidence strength. Bundle ranking combines those sources into an evidence-layer decision. The `decide` command returns the product decision: use the context, ask an owner, ask the current user, or stop automation.
@@ -107,6 +108,21 @@ Inspect a retrieval no-hit case that remains blocked:
 data-source-ranking run-agent fixtures/bundles/gamma_blocked.json --simulated-retrieval fixtures/simulated_retrieval/gammahealth_no_retrieval_hit.json
 ```
 
+Record feedback and inspect learned reliability defaults:
+
+```bash
+data-source-ranking feedback add fixtures/feedback/acme_handoff_accepted.json
+data-source-ranking feedback snapshot
+```
+
+Use stored feedback during scoring:
+
+```bash
+data-source-ranking rank-source fixtures/strong/acme_recent_crm_note.json --feedback-store data/feedback_events.jsonl --json
+data-source-ranking decide fixtures/bundles/acme_auto_handoff.json --feedback-store data/feedback_events.jsonl --json
+data-source-ranking run-agent fixtures/bundles/acme_auto_handoff.json --feedback-store data/feedback_events.jsonl --json
+```
+
 Print JSON for API or UI work:
 
 ```bash
@@ -115,6 +131,7 @@ data-source-ranking apply-review fixtures/reviews/unclear_owner_choose_owner.jso
 data-source-ranking run-agent fixtures/bundles/beta_needs_owner_validation.json --json --as-of "$AS_OF"
 data-source-ranking run-agent fixtures/bundles/beta_needs_owner_validation.json --owner-response fixtures/owner_responses/beta_lina_validates_old_proposal.json --json
 data-source-ranking run-agent fixtures/bundles/gamma_blocked.json --simulated-retrieval fixtures/simulated_retrieval/gammahealth_retrieves_validated_context.json --json
+data-source-ranking feedback snapshot --json
 ```
 
 ## Decision Demos
@@ -143,7 +160,7 @@ data-source-ranking run-agent fixtures/bundles/gamma_blocked.json --simulated-re
 
 ### `validate-fixtures`
 
-Checks source, bundle, review, owner-response, and simulated-retrieval fixture JSON files.
+Checks source, bundle, review, owner-response, simulated-retrieval, and feedback fixture JSON files.
 
 ```bash
 data-source-ranking validate-fixtures fixtures
@@ -157,7 +174,7 @@ Scores one source against a context need and assigns a source tier.
 data-source-ranking rank-source fixtures/weak/gammahealth_vague_crm_note.json --as-of "$AS_OF"
 ```
 
-Add `--show-metadata` to inspect scoring metadata.
+Add `--show-metadata` to inspect scoring metadata, or `--feedback-store` to apply feedback-derived reliability defaults.
 
 ### `rank-bundle`
 
@@ -176,6 +193,7 @@ data-source-ranking decide fixtures/bundles/betaworks_old_proposal_review.json -
 ```
 
 The decision output can include selected claims, selected sources, source citations, context requests, approval prompts, draft handoff text, blocked-output details, weak points, and audit events.
+Use `--feedback-store` to apply conservative learned reliability defaults inside the embedded ranked bundle.
 
 ### `apply-review`
 
@@ -195,7 +213,18 @@ Runs the bounded deterministic agent loop for a bundle.
 data-source-ranking run-agent fixtures/bundles/beta_needs_owner_validation.json --as-of "$AS_OF"
 ```
 
-The loop records selected actions, stop reasons, and audit events. Use `--owner-response` to apply owner validation, `--simulated-retrieval` to add fixture-backed retrieved sources, `--max-iterations` to exercise the guardrail contract, and `--json` to inspect the full `AgentRunResult`.
+The loop records selected actions, stop reasons, and audit events. Use `--owner-response` to apply owner validation, `--simulated-retrieval` to add fixture-backed retrieved sources, `--feedback-store` to apply and audit conservative learned reliability defaults, `--max-iterations` to exercise the guardrail contract, and `--json` to inspect the full `AgentRunResult`.
+
+### `feedback`
+
+Appends fixture-backed feedback events and builds conservative reliability snapshots from the local JSONL store.
+
+```bash
+data-source-ranking feedback add fixtures/feedback/acme_handoff_accepted.json
+data-source-ranking feedback snapshot
+```
+
+Use `--store-path` for isolated demos or tests, and `--json` to inspect the full `FeedbackEvent` or `ReliabilitySnapshot` payload.
 
 ## Docs
 
@@ -218,7 +247,7 @@ python -m data_source_ranking.cli validate-fixtures fixtures
 - Fixtures use normalized synthetic data, not raw CRM, Drive, Calendar, proposal, or partner-system exports.
 - Fixtures include hand-written claims.
 - Scoring, tiering, and policy gates use deterministic rules.
-- Historical reliability uses static defaults until real feedback history exists.
+- Historical reliability can accept conservative feedback-derived source-type and source-system overrides.
 - The system detects sensitive evidence overlap, but it does not compare claim meaning for semantic contradictions yet.
 - Review-response transitions apply prompt answers to the current decision state. They do not run a full recompute.
 - The `run-agent` command uses deterministic loop actions rather than live LLM tool execution.

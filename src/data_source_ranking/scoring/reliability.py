@@ -69,7 +69,9 @@ class HistoricalReliabilityScorer(BaseScorer):
                 "base_score_source": base_source,
                 "system_modifier": modifier,
                 "system_modifier_source": modifier_source,
-                "uses_learned_feedback": False,
+                "uses_learned_feedback": (
+                    base_source == "override" or modifier_source == "override"
+                ),
             },
         )
 
@@ -97,9 +99,13 @@ class HistoricalReliabilityScorer(BaseScorer):
         return "very_low_default"
 
     def _reason(self, score: float, base_source: str, modifier_source: str) -> str:
+        if base_source == "override" or modifier_source == "override":
+            return (
+                f"Historical reliability score is {score} using learned source-type "
+                "or source-system feedback overrides."
+            )
         return (
             f"Historical reliability score is {score} using {base_source} source-type "
             f"reliability and {modifier_source} source-system modifier. "
             "Learned feedback history is not available yet."
         )
-

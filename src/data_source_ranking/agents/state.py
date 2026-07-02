@@ -50,6 +50,7 @@ class StopReason(StrEnum):
 
 class AuditEventType(StrEnum):
     BUNDLE_LOADED = "bundle_loaded"
+    FEEDBACK_SNAPSHOT_APPLIED = "feedback_snapshot_applied"
     SOURCES_RANKED = "sources_ranked"
     DECISION_RECORDED = "decision_recorded"
     WEAK_POINTS_INSPECTED = "weak_points_inspected"

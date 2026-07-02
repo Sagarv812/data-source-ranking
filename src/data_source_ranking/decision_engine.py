@@ -34,8 +34,16 @@ from data_source_ranking.ranking import rank_bundle
 from data_source_ranking.scoring.common import DEFAULT_AS_OF
 
 
-def decide(bundle: SourceBundle, as_of: date = DEFAULT_AS_OF) -> AutomationDecision:
-    ranked_bundle = rank_bundle(bundle, as_of=as_of)
+def decide(
+    bundle: SourceBundle,
+    as_of: date = DEFAULT_AS_OF,
+    reliability_defaults: dict[str, float] | None = None,
+) -> AutomationDecision:
+    ranked_bundle = rank_bundle(
+        bundle,
+        as_of=as_of,
+        reliability_defaults=reliability_defaults,
+    )
     policy_gates = evaluate_policy_gates(ranked_bundle)
     decision = select_final_decision(policy_gates)
     selected_claims = _selected_claims(bundle, ranked_bundle, decision)
@@ -66,7 +74,12 @@ def decide(bundle: SourceBundle, as_of: date = DEFAULT_AS_OF) -> AutomationDecis
         ),
         blocked_output=_blocked_output(bundle, decision, ranked_bundle, policy_gates),
         audit_trace=_audit_trace(decision, ranked_bundle, policy_gates),
-        metadata={"decision_engine": "rule_based_v1", "as_of": as_of.isoformat()},
+        metadata={
+            "decision_engine": "rule_based_v1",
+            "as_of": as_of.isoformat(),
+            "uses_learned_feedback": bool(reliability_defaults),
+            "reliability_default_count": len(reliability_defaults or {}),
+        },
     )
 
 
