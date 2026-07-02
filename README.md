@@ -16,6 +16,7 @@ Use this prototype as an inspectable trust gate. It scores normalized source rec
 - Review-response validation and deterministic transitions through `apply-review`.
 - A bounded `run-agent` loop that can apply owner-response or simulated-retrieval fixtures, re-run the decision, and record an audit timeline.
 - Feedback event models, local JSONL persistence, conservative reliability snapshots, and feedback-aware agent audit output.
+- FastAPI foundation with health, fixture discovery, ranking, decision, agent-run, review-application, and feedback endpoints for the future UI.
 - Synthetic source, bundle, review, owner-response, and simulated-retrieval fixtures for repeatable demos.
 
 Source tiers describe individual evidence strength. Bundle ranking combines those sources into an evidence-layer decision. The `decide` command returns the product decision: use the context, ask an owner, ask the current user, or stop automation.
@@ -123,6 +124,20 @@ data-source-ranking decide fixtures/bundles/acme_auto_handoff.json --feedback-st
 data-source-ranking run-agent fixtures/bundles/acme_auto_handoff.json --feedback-store data/feedback_events.jsonl --json
 ```
 
+Start the API foundation:
+
+```bash
+uvicorn api.main:app --reload
+```
+
+Then inspect:
+
+```bash
+curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:8000/fixtures
+curl http://127.0.0.1:8000/fixtures/bundles/acme_auto_handoff
+```
+
 Print JSON for API or UI work:
 
 ```bash
@@ -225,6 +240,48 @@ data-source-ranking feedback snapshot
 ```
 
 Use `--store-path` for isolated demos or tests, and `--json` to inspect the full `FeedbackEvent` or `ReliabilitySnapshot` payload.
+
+### API
+
+The API foundation is available at `api.main:app`.
+
+```bash
+uvicorn api.main:app --reload
+```
+
+Initial endpoints:
+
+- `GET /health`
+- `GET /fixtures`
+- `GET /fixtures/{fixture_id}`
+- `POST /rank`
+- `POST /decide`
+- `POST /run-agent`
+- `POST /runs/decide`
+- `POST /runs/agent`
+- `GET /runs`
+- `GET /runs/{run_id}`
+- `POST /apply-review`
+- `POST /runs/{run_id}/review`
+- `POST /runs/{run_id}/feedback`
+- `POST /feedback`
+- `GET /feedback/snapshot`
+
+Fixture IDs are relative fixture paths without `.json`, such as `bundles/acme_auto_handoff`.
+Use `GET /fixtures?kind=bundle` to filter by fixture kind, and `GET /fixtures?grouped=true` when the UI needs pre-grouped fixture lists with counts.
+Run history is API-owned: `POST /runs/decide` and `POST /runs/agent` persist product-shaped run records, while `GET /runs` and `GET /runs/{run_id}` support UI history views.
+Review application supports both deterministic fixtures and product-style local review submissions: `POST /apply-review` applies a review fixture, while `POST /runs/{run_id}/review` accepts inline prompt choices such as `selected_choice_id`, `selected_owner_id`, `selected_owner_name`, `user_accepts_risk`, and `notes`. Inline review submissions are stored as append-only review events and returned on run detail responses as `review_events`.
+Feedback recording is API-owned: `POST /feedback` accepts a feedback fixture id for deterministic demos, while `POST /runs/{run_id}/feedback` records structured UI feedback against a persisted run and returns the updated reliability snapshot. `GET /feedback/snapshot` reads the API-managed local feedback store without exposing storage paths in UI-facing requests.
+
+The UI workflow should use the product endpoints in this order:
+
+```text
+POST /runs/decide
+POST /runs/{run_id}/review
+POST /runs/{run_id}/feedback
+GET /runs/{run_id}
+GET /feedback/snapshot
+```
 
 ## Docs
 

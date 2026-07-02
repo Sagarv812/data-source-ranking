@@ -62,6 +62,25 @@ def load_review_response_fixture(path: str | Path) -> ReviewResponseFixture:
     return _validate_fixture(Path(path), ReviewResponseFixture)
 
 
+def resolve_review_bundle_path(review_path: str | Path, bundle_path_value: str) -> Path:
+    review_fixture_path = Path(review_path)
+    bundle_path = Path(bundle_path_value)
+    if bundle_path.is_absolute() or bundle_path.exists():
+        return bundle_path
+
+    relative_to_review = review_fixture_path.parent / bundle_path
+    if relative_to_review.exists():
+        return relative_to_review
+
+    relative_to_fixture_root = _relative_to_fixture_root(review_fixture_path, bundle_path)
+    if relative_to_fixture_root and relative_to_fixture_root.exists():
+        return relative_to_fixture_root
+
+    raise FixtureLoadError(
+        f"bundle path {bundle_path_value!r} from review fixture {review_path} does not exist"
+    )
+
+
 def load_owner_response_fixture(path: str | Path) -> OwnerResponseFixture:
     return _validate_fixture(Path(path), OwnerResponseFixture)
 

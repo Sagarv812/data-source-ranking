@@ -33,6 +33,7 @@ from data_source_ranking.loader import (
     load_simulated_retrieval_sources,
     load_source_bundle,
     load_source_fixture,
+    resolve_review_bundle_path,
 )
 from data_source_ranking.models import RankedBundle, RankedSource, RankingDimension, WeakPoint
 from data_source_ranking.ranking import rank_bundle as rank_bundle_file
@@ -158,7 +159,7 @@ def apply_review(
     ] = None,
 ) -> None:
     review_fixture = load_review_response_fixture(path)
-    bundle_path = _resolve_review_bundle_path(path, review_fixture.bundle_path)
+    bundle_path = resolve_review_bundle_path(path, review_fixture.bundle_path)
     bundle = load_source_bundle(bundle_path)
     effective_as_of = as_of or review_fixture.as_of or DEFAULT_AS_OF.isoformat()
     decision = decide_file(bundle, as_of=_parse_as_of(effective_as_of))
@@ -768,35 +769,6 @@ def _learned_feedback_text(result: AgentRunResult) -> str:
             f"{result.metadata['feedback_event_count']} events)"
         )
     return "not applied"
-
-
-def _resolve_review_bundle_path(review_path: Path, bundle_path_value: str) -> Path:
-    bundle_path = Path(bundle_path_value)
-    if bundle_path.is_absolute() or bundle_path.exists():
-        return bundle_path
-
-    relative_to_review = review_path.parent / bundle_path
-    if relative_to_review.exists():
-        return relative_to_review
-
-    relative_to_fixture_root = _relative_to_fixture_root(review_path, bundle_path)
-    if relative_to_fixture_root and relative_to_fixture_root.exists():
-        return relative_to_fixture_root
-
-    raise FixtureLoadError(
-        f"bundle path {bundle_path_value!r} from review fixture {review_path} does not exist"
-    )
-
-
-def _relative_to_fixture_root(review_path: Path, bundle_path: Path) -> Path | None:
-    review_path = review_path.resolve()
-    fixture_root = next(
-        (parent for parent in review_path.parents if parent.name == "fixtures"),
-        None,
-    )
-    if fixture_root is None or not bundle_path.parts or bundle_path.parts[0] != "fixtures":
-        return None
-    return fixture_root.parent / bundle_path
 
 
 def _parse_as_of(value: str) -> date:
