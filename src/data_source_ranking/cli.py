@@ -7,13 +7,20 @@ from typing import Annotated, Any
 
 import typer
 
+from data_source_ranking.agents.loop import run_agent as run_agent_file
+from data_source_ranking.agents.state import AgentRunResult
 from data_source_ranking.decision_engine import decide as decide_file
 from data_source_ranking.decisions import AutomationDecision
 from data_source_ranking.loader import (
     FixtureLoadError,
     is_bundle_fixture,
+    is_owner_response_fixture,
     is_review_response_fixture,
+    is_simulated_retrieval_fixture,
+    load_owner_response_fixture,
     load_review_response_fixture,
+    load_simulated_retrieval_fixture,
+    load_simulated_retrieval_sources,
     load_source_bundle,
     load_source_fixture,
 )
@@ -133,7 +140,116 @@ def apply_review(
     )
 
 
-@app.command("validate-fixtures", help="Validate source, bundle, and review fixture JSON files.")
+@app.command("run-agent", help="Run the bounded deterministic agent loop for a bundle.")
+def run_agent(
+    path: Annotated[Path, typer.Argument(exists=True, file_okay=True, dir_okay=False)],
+    as_json: Annotated[bool, typer.Option("--json", help="Print full result as JSON.")] = False,
+    as_of: Annotated[
+        str | None,
+        typer.Option("--as-of", help="Override the agent evaluation date."),
+    ] = None,
+    max_iterations: Annotated[
+        int,
+        typer.Option("--max-iterations", help="Maximum bounded loop iterations."),
+    ] = 3,
+    owner_response_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--owner-response",
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            help="Owner-response fixture to apply before re-running the loop.",
+        ),
+    ] = None,
+    simulated_retrieval_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--simulated-retrieval",
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            help="Simulated-retrieval fixture to apply before re-running the loop.",
+        ),
+    ] = None,
+) -> None:
+    if max_iterations < 1:
+        typer.echo("Invalid --max-iterations. Use a value of 1 or greater.", err=True)
+        raise typer.Exit(1)
+    if owner_response_path and simulated_retrieval_path:
+        typer.echo(
+            "Use either --owner-response or --simulated-retrieval, not both.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    bundle = load_source_bundle(path)
+    owner_response_fixture = (
+        load_owner_response_fixture(owner_response_path) if owner_response_path else None
+    )
+    simulated_retrieval_fixture = (
+        load_simulated_retrieval_fixture(simulated_retrieval_path)
+        if simulated_retrieval_path
+        else None
+    )
+    retrieved_sources = (
+        load_simulated_retrieval_sources(simulated_retrieval_path)
+        if simulated_retrieval_path
+        else None
+    )
+    if (
+        owner_response_fixture
+        and owner_response_fixture.response.bundle_id != bundle.id
+    ):
+        typer.echo(
+            "Owner response fixture bundle_id "
+            f"{owner_response_fixture.response.bundle_id!r} does not match bundle "
+            f"{bundle.id!r}.",
+            err=True,
+        )
+        raise typer.Exit(1)
+    if (
+        simulated_retrieval_fixture
+        and simulated_retrieval_fixture.bundle_id != bundle.id
+    ):
+        typer.echo(
+            "Simulated retrieval fixture bundle_id "
+            f"{simulated_retrieval_fixture.bundle_id!r} does not match bundle "
+            f"{bundle.id!r}.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    effective_as_of = (
+        as_of
+        or (owner_response_fixture.as_of if owner_response_fixture else None)
+        or (simulated_retrieval_fixture.as_of if simulated_retrieval_fixture else None)
+        or DEFAULT_AS_OF.isoformat()
+    )
+    result = run_agent_file(
+        bundle,
+        as_of=_parse_as_of(effective_as_of),
+        max_iterations=max_iterations,
+        owner_response=(
+            owner_response_fixture.response if owner_response_fixture else None
+        ),
+        simulated_retrieval=simulated_retrieval_fixture,
+        retrieved_sources=retrieved_sources,
+    )
+    if as_json:
+        _print_json(result)
+        return
+
+    typer.echo(_format_agent_run_result(result))
+
+
+@app.command(
+    "validate-fixtures",
+    help=(
+        "Validate source, bundle, review, owner-response, and simulated-retrieval "
+        "fixture JSON files."
+    ),
+)
 def validate_fixtures(
     path: Annotated[Path, typer.Argument(exists=True, file_okay=True, dir_okay=True)],
 ) -> None:
@@ -145,11 +261,19 @@ def validate_fixtures(
     source_count = 0
     bundle_count = 0
     review_count = 0
+    owner_response_count = 0
+    simulated_retrieval_count = 0
     errors: list[str] = []
 
     for fixture_path in fixture_paths:
         try:
-            if is_review_response_fixture(fixture_path):
+            if is_simulated_retrieval_fixture(fixture_path):
+                load_simulated_retrieval_fixture(fixture_path)
+                simulated_retrieval_count += 1
+            elif is_owner_response_fixture(fixture_path):
+                load_owner_response_fixture(fixture_path)
+                owner_response_count += 1
+            elif is_review_response_fixture(fixture_path):
                 load_review_response_fixture(fixture_path)
                 review_count += 1
             elif is_bundle_fixture(fixture_path):
@@ -169,12 +293,18 @@ def validate_fixtures(
 
     typer.echo(
         f"Validated {len(fixture_paths)} fixture file(s): "
-        f"{source_count} source, {bundle_count} bundle, {review_count} review."
+        f"{source_count} source, {bundle_count} bundle, {review_count} review, "
+        f"{owner_response_count} owner response, "
+        f"{simulated_retrieval_count} simulated retrieval."
     )
 
 
 def _print_json(
-    result: RankedSource | RankedBundle | AutomationDecision | ReviewResponseResult,
+    result: RankedSource
+    | RankedBundle
+    | AutomationDecision
+    | ReviewResponseResult
+    | AgentRunResult,
 ) -> None:
     typer.echo(json.dumps(result.model_dump(mode="json"), indent=2, sort_keys=True))
 
@@ -328,6 +458,119 @@ def _format_review_response_result(
     if show_metadata:
         lines.extend(["", "Metadata:", _metadata_text(result.metadata)])
     return "\n".join(lines)
+
+
+def _format_agent_run_result(result: AgentRunResult) -> str:
+    action = result.steps[-1].action if result.steps else None
+    lines = [
+        f"Agent run: {result.bundle_id}",
+        f"Initial decision: {result.initial_decision.decision.value}",
+        f"Final decision: {result.final_decision.decision.value}",
+        f"Stop reason: {result.stop_reason.value}",
+        f"Execution mode: {result.metadata['execution_mode']}",
+        "",
+        "Selected action:",
+    ]
+    if action:
+        lines.extend(
+            [
+                f"- {action.type.value}: {action.label}",
+                f"  {action.reason}",
+            ]
+        )
+        if question := action.metadata.get("question"):
+            lines.append(f"  question: {question}")
+    else:
+        lines.append("- none")
+    lines.extend(_owner_response_lines(result))
+    lines.extend(_simulated_retrieval_lines(result))
+    lines.extend(["", "Steps:"])
+    if result.steps:
+        lines.extend(
+            f"- #{step.sequence} {step.action.type.value} -> "
+            f"{step.stop_reason.value if step.stop_reason else 'none'}"
+            for step in result.steps
+        )
+    else:
+        lines.append("- none")
+    lines.extend(["", "Audit:"])
+    lines.extend(
+        f"- #{event.sequence} {event.event_type.value}: {event.title}"
+        for event in result.audit_trace.events
+    )
+    return "\n".join(lines)
+
+
+def _owner_response_lines(result: AgentRunResult) -> list[str]:
+    owner_result = result.state.owner_response_result
+    if owner_result:
+        lines = [
+            "",
+            "Owner response:",
+            f"- accepted: {str(owner_result.accepted).lower()}",
+            f"- source: {owner_result.response.source_id}",
+            f"- owner: {owner_result.response.owner_name}",
+            "- effects:",
+            *_indented_lines(owner_result.applied_effects),
+        ]
+        if owner_result.validation_errors:
+            lines.extend(
+                [
+                    "- validation errors:",
+                    *_indented_lines(owner_result.validation_errors),
+                ]
+            )
+        return lines
+
+    if result.state.owner_responses:
+        response = result.state.owner_responses[-1]
+        validation_errors = [
+            error
+            for step in result.steps
+            for error in step.metadata.get("validation_errors", [])
+            if isinstance(error, str)
+        ]
+        return [
+            "",
+            "Owner response:",
+            "- accepted: false",
+            f"- source: {response.source_id}",
+            f"- owner: {response.owner_name}",
+            "- effects:",
+            *_indented_lines([]),
+            "- validation errors:",
+            *_indented_lines(validation_errors),
+        ]
+
+    return []
+
+
+def _simulated_retrieval_lines(result: AgentRunResult) -> list[str]:
+    retrieval_result = result.state.simulated_retrieval_result
+    if not retrieval_result:
+        return []
+
+    lines = [
+        "",
+        "Simulated retrieval:",
+        f"- accepted: {str(retrieval_result.accepted).lower()}",
+        "- retrieved sources:",
+        *_indented_lines([source.id for source in retrieval_result.retrieved_sources]),
+        "- added sources:",
+        *_indented_lines(retrieval_result.added_source_ids),
+        "- skipped duplicate sources:",
+        *_indented_lines(retrieval_result.skipped_duplicate_source_ids),
+        "- effects:",
+        *_indented_lines(retrieval_result.applied_effects),
+    ]
+    if retrieval_result.validation_errors:
+        lines.extend(
+            [
+                "- validation errors:",
+                *_indented_lines(retrieval_result.validation_errors),
+            ]
+        )
+    return lines
 
 
 def _source_lines(source_ids: list[str]) -> list[str]:

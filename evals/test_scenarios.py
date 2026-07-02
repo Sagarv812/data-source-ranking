@@ -4,11 +4,18 @@ from pathlib import Path
 
 import pytest
 
+from data_source_ranking.agents.retrieval import SimulatedRetrievalFixture
+from data_source_ranking.agents.state import OwnerResponseFixture
 from data_source_ranking.loader import (
     FixtureLoadError,
     is_bundle_fixture,
+    is_owner_response_fixture,
     is_review_response_fixture,
+    is_simulated_retrieval_fixture,
+    load_owner_response_fixture,
     load_review_response_fixture,
+    load_simulated_retrieval_fixture,
+    load_simulated_retrieval_sources,
     load_source_bundle,
     load_source_bundle_fixture,
     load_source_fixture,
@@ -36,6 +43,19 @@ def scenario_paths() -> list[Path]:
 
 @pytest.mark.parametrize("path", scenario_paths(), ids=str)
 def test_all_json_scenarios_validate(path: Path) -> None:
+    if "simulated_retrieval" in path.parts:
+        retrieval_fixture = load_simulated_retrieval_fixture(path)
+        assert isinstance(retrieval_fixture, SimulatedRetrievalFixture)
+        assert len(load_simulated_retrieval_sources(path)) == len(
+            retrieval_fixture.retrieved_source_refs
+        )
+        return
+
+    if "owner_responses" in path.parts:
+        owner_response_fixture = load_owner_response_fixture(path)
+        assert isinstance(owner_response_fixture, OwnerResponseFixture)
+        return
+
     if "reviews" in path.parts:
         review_fixture = load_review_response_fixture(path)
         assert isinstance(review_fixture, ReviewResponseFixture)
@@ -55,7 +75,12 @@ def test_all_json_scenarios_validate(path: Path) -> None:
 
 @pytest.mark.parametrize("path", scenario_paths(), ids=str)
 def test_all_source_scenarios_include_expected_tier(path: Path) -> None:
-    if "bundles" in path.parts or "reviews" in path.parts:
+    if (
+        "bundles" in path.parts
+        or "reviews" in path.parts
+        or "owner_responses" in path.parts
+        or "simulated_retrieval" in path.parts
+    ):
         return
 
     scenario = load_source_fixture(path)
@@ -102,6 +127,38 @@ def test_review_fixture_detection_uses_json_shape() -> None:
     assert is_review_response_fixture("fixtures/reviews/similar_client_use_directional.json")
     assert not is_review_response_fixture("fixtures/bundles/acme_auto_handoff.json")
     assert not is_review_response_fixture("fixtures/strong/acme_recent_crm_note.json")
+    assert not is_review_response_fixture(
+        "fixtures/owner_responses/beta_lina_validates_old_proposal.json"
+    )
+    assert not is_review_response_fixture(
+        "fixtures/simulated_retrieval/gammahealth_retrieves_validated_context.json"
+    )
+
+
+def test_owner_response_fixture_detection_uses_json_shape() -> None:
+    assert is_owner_response_fixture(
+        "fixtures/owner_responses/beta_lina_validates_old_proposal.json"
+    )
+    assert not is_owner_response_fixture("fixtures/reviews/similar_client_use_directional.json")
+    assert not is_owner_response_fixture("fixtures/bundles/acme_auto_handoff.json")
+    assert not is_owner_response_fixture("fixtures/strong/acme_recent_crm_note.json")
+    assert not is_owner_response_fixture(
+        "fixtures/simulated_retrieval/gammahealth_retrieves_validated_context.json"
+    )
+
+
+def test_simulated_retrieval_fixture_detection_uses_json_shape() -> None:
+    assert is_simulated_retrieval_fixture(
+        "fixtures/simulated_retrieval/gammahealth_retrieves_validated_context.json"
+    )
+    assert not is_simulated_retrieval_fixture(
+        "fixtures/reviews/similar_client_use_directional.json"
+    )
+    assert not is_simulated_retrieval_fixture(
+        "fixtures/owner_responses/beta_lina_validates_old_proposal.json"
+    )
+    assert not is_simulated_retrieval_fixture("fixtures/bundles/acme_auto_handoff.json")
+    assert not is_simulated_retrieval_fixture("fixtures/strong/acme_recent_crm_note.json")
 
 
 def test_malformed_json_raises_fixture_load_error(tmp_path: Path) -> None:
@@ -198,7 +255,12 @@ def test_bundle_refs_resolve_from_absolute_path_outside_repo_root(
 
 @pytest.mark.parametrize("path", scenario_paths(), ids=str)
 def test_non_strong_scenarios_include_expected_weak_points(path: Path) -> None:
-    if "bundles" in path.parts or "reviews" in path.parts:
+    if (
+        "bundles" in path.parts
+        or "reviews" in path.parts
+        or "owner_responses" in path.parts
+        or "simulated_retrieval" in path.parts
+    ):
         return
 
     scenario = load_source_fixture(path)
@@ -210,7 +272,12 @@ def test_non_strong_scenarios_include_expected_weak_points(path: Path) -> None:
 
 @pytest.mark.parametrize("path", scenario_paths(), ids=str)
 def test_similar_client_sources_include_similarity_reason(path: Path) -> None:
-    if "bundles" in path.parts or "reviews" in path.parts:
+    if (
+        "bundles" in path.parts
+        or "reviews" in path.parts
+        or "owner_responses" in path.parts
+        or "simulated_retrieval" in path.parts
+    ):
         return
 
     scenario = load_source_fixture(path)

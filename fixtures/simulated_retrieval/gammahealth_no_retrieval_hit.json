@@ -1,0 +1,26 @@
+{
+  "bundle_id": "bundle_gamma_blocked",
+  "as_of": "2026-06-21",
+  "query": {
+    "needed_claim_ids": [
+      "need_claim_current_concern"
+    ],
+    "weak_point_types": [
+      "vague_claim",
+      "stale_source",
+      "low_directness"
+    ],
+    "search_terms": [
+      "GammaHealth current re-engagement concern",
+      "GammaHealth clinic referral intake review"
+    ]
+  },
+  "retrieved_source_refs": [],
+  "expected": {
+    "decision_after_retrieval": "blocked",
+    "retrieved_source_ids": []
+  },
+  "metadata": {
+    "story": "Simulated retrieval finds no additional usable evidence, so the blocked GammaHealth case remains blocked."
+  }
+}

@@ -45,10 +45,14 @@ fixtures/medium/
 fixtures/weak/
 fixtures/bundles/
 fixtures/reviews/
+fixtures/owner_responses/
+fixtures/simulated_retrieval/
 ```
 
 Use strength folders for single-source scenarios. Use `bundles/` for multi-source scenarios where corroboration, sensitive evidence overlap, owner resolution, or automation decisions will eventually be tested.
 Use `reviews/` for deterministic examples of prompt responses applied to bundle decisions.
+Use `owner_responses/` for fixture-backed owner validation answers.
+Use `simulated_retrieval/` for deterministic retrieval hits that point at existing source fixtures.
 
 ## Fixture Index
 
@@ -117,6 +121,23 @@ Review fixtures pair a bundle fixture with one user response to the focused appr
 | `fixtures/reviews/sensitive_partner_request_validation.json` | `request_validation` | Converts standalone sensitive partner material review into an owner validation context request. |
 | `fixtures/reviews/unsupported_claim_remove.json` | `remove_claim` | Records unsupported-claim removal without deleting unrelated safe evidence. |
 | `fixtures/reviews/old_proposal_use_historical_context.json` | `use_historical_context` | Records stale-proposal risk acceptance and historical-context labeling. |
+
+### Owner Responses
+
+Owner-response fixtures pair a bundle id with one answer from a source owner. They are consumed by `data-source-ranking run-agent --owner-response`.
+
+| Fixture | Response | What It Proves |
+| --- | --- | --- |
+| `fixtures/owner_responses/beta_lina_validates_old_proposal.json` | Lina validates selected old-proposal claims | Owner validation can record source validation history and let the agent rerun to `auto_handoff`. |
+
+### Simulated Retrieval
+
+Simulated-retrieval fixtures describe deterministic retrieval attempts. They store query intent and source fixture refs; the retrieved records still validate as normal `SourceFixture` data and are scored through the same core.
+
+| Fixture | Retrieved Source | What It Proves |
+| --- | --- | --- |
+| `fixtures/simulated_retrieval/gammahealth_retrieves_validated_context.json` | `fixtures/strong/gammahealth_human_validated_context.json` | Retrieval can find human-validated GammaHealth context that improves the blocked bundle when appended and re-ranked. |
+| `fixtures/simulated_retrieval/gammahealth_no_retrieval_hit.json` | none | Retrieval can find no additional evidence and leave the blocked GammaHealth case blocked with a clear stop reason. |
 
 ## Fictional Clients
 

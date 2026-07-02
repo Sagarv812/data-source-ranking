@@ -309,6 +309,292 @@ def test_decide_command_json_includes_old_proposal_prompt() -> None:
     assert prompt["choices"][1]["metadata"]["risk"] == "stale_proposal"
 
 
+def test_run_agent_command_prints_readable_summary() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "run-agent",
+            "fixtures/bundles/beta_needs_owner_validation.json",
+            "--as-of",
+            "2026-06-21",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Agent run: bundle_beta_needs_owner_validation" in result.stdout
+    assert "Initial decision: generate_context_request" in result.stdout
+    assert "Final decision: generate_context_request" in result.stdout
+    assert "Stop reason: pending_owner_response" in result.stdout
+    assert "Execution mode: single_action_skeleton" in result.stdout
+    assert "Selected action:" in result.stdout
+    assert "ask_owner: Ask owner for validation" in result.stdout
+    assert "question:" in result.stdout
+    assert "Steps:" in result.stdout
+    assert "#1 ask_owner -> pending_owner_response" in result.stdout
+    assert "Audit:" in result.stdout
+    assert "#1 bundle_loaded: Bundle loaded" in result.stdout
+    assert "#4 action_selected: Action selected" in result.stdout
+
+
+def test_run_agent_command_can_print_json() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "run-agent",
+            "fixtures/bundles/northstar_similar_client_review.json",
+            "--json",
+            "--max-iterations",
+            "1",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["bundle_id"] == "bundle_northstar_similar_client_review"
+    assert payload["initial_decision"]["decision"] == "needs_user_review"
+    assert payload["final_decision"]["decision"] == "needs_user_review"
+    assert payload["stop_reason"] == "pending_user_review"
+    assert payload["metadata"]["execution_mode"] == "single_action_skeleton"
+    assert payload["metadata"]["max_iterations"] == 1
+    assert payload["state"]["iteration_count"] == 1
+    assert payload["steps"][0]["action"]["type"] == "ask_user_review"
+    assert payload["audit_trace"]["events"][-1]["event_type"] == "action_selected"
+
+
+def test_run_agent_command_applies_owner_response_fixture() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "run-agent",
+            "fixtures/bundles/beta_needs_owner_validation.json",
+            "--owner-response",
+            "fixtures/owner_responses/beta_lina_validates_old_proposal.json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Agent run: bundle_beta_needs_owner_validation" in result.stdout
+    assert "Initial decision: generate_context_request" in result.stdout
+    assert "Final decision: auto_handoff" in result.stdout
+    assert "Stop reason: final_decision_ready" in result.stdout
+    assert "Execution mode: owner_response_rerun" in result.stdout
+    assert "stop_auto_handoff: Prepare handoff" in result.stdout
+    assert "Owner response:" in result.stdout
+    assert "accepted: true" in result.stdout
+    assert "source: src_betaworks_old_proposal_with_owner" in result.stdout
+    assert "owner_response_validated" in result.stdout
+    assert "source_validation_recorded" in result.stdout
+    assert "#2 apply_owner_response -> pending_owner_response" in result.stdout
+    assert "#3 stop_auto_handoff -> final_decision_ready" in result.stdout
+    assert "owner_response_applied: Owner response applied" in result.stdout
+
+
+def test_run_agent_command_owner_response_can_print_json() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "run-agent",
+            "fixtures/bundles/beta_needs_owner_validation.json",
+            "--owner-response",
+            "fixtures/owner_responses/beta_lina_validates_old_proposal.json",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    owner_result = payload["state"]["owner_response_result"]
+    validated_source = next(
+        source
+        for source in payload["state"]["current_sources"]
+        if source["id"] == "src_betaworks_old_proposal_with_owner"
+    )
+    assert payload["initial_decision"]["decision"] == "generate_context_request"
+    assert payload["final_decision"]["decision"] == "auto_handoff"
+    assert payload["stop_reason"] == "final_decision_ready"
+    assert payload["metadata"]["execution_mode"] == "owner_response_rerun"
+    assert owner_result["accepted"] is True
+    assert owner_result["applied_effects"] == [
+        "owner_response_validated",
+        "source_validation_recorded",
+    ]
+    assert validated_source["validation_history"][0]["validated_by"]["id"] == "user_lina"
+    assert payload["steps"][1]["action"]["type"] == "apply_owner_response"
+    assert payload["steps"][2]["action"]["type"] == "stop_auto_handoff"
+
+
+def test_run_agent_command_as_of_overrides_owner_response_fixture_date() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "run-agent",
+            "fixtures/bundles/beta_needs_owner_validation.json",
+            "--owner-response",
+            "fixtures/owner_responses/beta_lina_validates_old_proposal.json",
+            "--as-of",
+            "2026-07-01",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    validated_source = next(
+        source
+        for source in payload["state"]["current_sources"]
+        if source["id"] == "src_betaworks_old_proposal_with_owner"
+    )
+    assert payload["metadata"]["as_of"] == "2026-07-01"
+    assert validated_source["validation_history"][0]["validated_at"] == "2026-07-01"
+
+
+def test_run_agent_command_rejects_mismatched_owner_response_bundle() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "run-agent",
+            "fixtures/bundles/acme_auto_handoff.json",
+            "--owner-response",
+            "fixtures/owner_responses/beta_lina_validates_old_proposal.json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Owner response fixture bundle_id" in result.stderr
+    assert "does not match bundle 'bundle_acme_auto_handoff'" in result.stderr
+
+
+def test_run_agent_command_applies_simulated_retrieval_fixture() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "run-agent",
+            "fixtures/bundles/gamma_blocked.json",
+            "--simulated-retrieval",
+            "fixtures/simulated_retrieval/gammahealth_retrieves_validated_context.json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Agent run: bundle_gamma_blocked" in result.stdout
+    assert "Initial decision: blocked" in result.stdout
+    assert "Final decision: auto_handoff" in result.stdout
+    assert "Stop reason: final_decision_ready" in result.stdout
+    assert "Execution mode: simulated_retrieval_rerun" in result.stdout
+    assert "stop_auto_handoff: Prepare handoff" in result.stdout
+    assert "Simulated retrieval:" in result.stdout
+    assert "accepted: true" in result.stdout
+    assert "retrieved sources:" in result.stdout
+    assert "src_gammahealth_human_validated_context" in result.stdout
+    assert "sources_added" in result.stdout
+    assert "#2 retrieve_more_context -> blocked_no_reliable_path" in result.stdout
+    assert "#3 stop_auto_handoff -> final_decision_ready" in result.stdout
+    assert "simulated_retrieval_applied: Simulated retrieval applied" in result.stdout
+
+
+def test_run_agent_command_simulated_retrieval_can_print_json() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "run-agent",
+            "fixtures/bundles/gamma_blocked.json",
+            "--simulated-retrieval",
+            "fixtures/simulated_retrieval/gammahealth_retrieves_validated_context.json",
+            "--json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    retrieval_result = payload["state"]["simulated_retrieval_result"]
+    assert payload["initial_decision"]["decision"] == "blocked"
+    assert payload["final_decision"]["decision"] == "auto_handoff"
+    assert payload["stop_reason"] == "final_decision_ready"
+    assert payload["metadata"]["execution_mode"] == "simulated_retrieval_rerun"
+    assert payload["metadata"]["as_of"] == "2026-06-21"
+    assert retrieval_result["accepted"] is True
+    assert retrieval_result["added_source_ids"] == [
+        "src_gammahealth_human_validated_context"
+    ]
+    assert payload["steps"][1]["action"]["type"] == "retrieve_more_context"
+    assert payload["steps"][2]["action"]["type"] == "stop_auto_handoff"
+
+
+def test_run_agent_command_no_hit_simulated_retrieval_remains_blocked() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "run-agent",
+            "fixtures/bundles/gamma_blocked.json",
+            "--simulated-retrieval",
+            "fixtures/simulated_retrieval/gammahealth_no_retrieval_hit.json",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Agent run: bundle_gamma_blocked" in result.stdout
+    assert "Initial decision: blocked" in result.stdout
+    assert "Final decision: blocked" in result.stdout
+    assert "Stop reason: blocked_no_reliable_path" in result.stdout
+    assert "Execution mode: simulated_retrieval_rerun" in result.stdout
+    assert "Simulated retrieval:" in result.stdout
+    assert "accepted: true" in result.stdout
+    assert "retrieved sources:" in result.stdout
+    assert "added sources:" in result.stdout
+    assert "no_new_sources" in result.stdout
+    assert "#1 stop_blocked -> blocked_no_reliable_path" in result.stdout
+    assert "#2 retrieve_more_context -> blocked_no_reliable_path" in result.stdout
+    assert "#3 stop_auto_handoff" not in result.stdout
+
+
+def test_run_agent_command_rejects_mismatched_simulated_retrieval_bundle() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "run-agent",
+            "fixtures/bundles/acme_auto_handoff.json",
+            "--simulated-retrieval",
+            "fixtures/simulated_retrieval/gammahealth_retrieves_validated_context.json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Simulated retrieval fixture bundle_id" in result.stderr
+    assert "does not match bundle 'bundle_acme_auto_handoff'" in result.stderr
+
+
+def test_run_agent_command_rejects_combined_owner_response_and_simulated_retrieval() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "run-agent",
+            "fixtures/bundles/beta_needs_owner_validation.json",
+            "--owner-response",
+            "fixtures/owner_responses/beta_lina_validates_old_proposal.json",
+            "--simulated-retrieval",
+            "fixtures/simulated_retrieval/gammahealth_retrieves_validated_context.json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Use either --owner-response or --simulated-retrieval, not both." in result.stderr
+
+
+def test_run_agent_command_rejects_invalid_max_iterations() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "run-agent",
+            "fixtures/bundles/acme_auto_handoff.json",
+            "--max-iterations",
+            "0",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Invalid --max-iterations. Use a value of 1 or greater." in result.stderr
+
+
 def test_apply_review_command_prints_readable_summary() -> None:
     result = runner.invoke(
         app,
@@ -535,7 +821,9 @@ def test_validate_fixtures_command_prints_counts() -> None:
     assert result.stdout.startswith("Validated ")
     assert " source, " in result.stdout
     assert " bundle, " in result.stdout
-    assert " review." in result.stdout
+    assert " review, " in result.stdout
+    assert " owner response, " in result.stdout
+    assert " simulated retrieval." in result.stdout
 
 
 def test_validate_fixtures_command_fails_for_invalid_fixture(tmp_path: Path) -> None:

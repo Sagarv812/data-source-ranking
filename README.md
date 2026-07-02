@@ -14,7 +14,8 @@ Use this prototype as an inspectable trust gate. It scores normalized source rec
 - Source-backed draft handoff text for safe auto-handoff cases.
 - Structured blocked output for safety-stop cases.
 - Review-response validation and deterministic transitions through `apply-review`.
-- Synthetic source, bundle, and review fixtures for repeatable demos.
+- A bounded `run-agent` loop that can apply owner-response or simulated-retrieval fixtures, re-run the decision, and record an audit timeline.
+- Synthetic source, bundle, review, owner-response, and simulated-retrieval fixtures for repeatable demos.
 
 Source tiers describe individual evidence strength. Bundle ranking combines those sources into an evidence-layer decision. The `decide` command returns the product decision: use the context, ask an owner, ask the current user, or stop automation.
 
@@ -82,11 +83,38 @@ Apply a review response:
 data-source-ranking apply-review fixtures/reviews/similar_client_use_directional.json
 ```
 
+Run the Week 3 agent loop skeleton:
+
+```bash
+data-source-ranking run-agent fixtures/bundles/beta_needs_owner_validation.json --as-of "$AS_OF"
+```
+
+Apply an owner response and re-run the agent loop:
+
+```bash
+data-source-ranking run-agent fixtures/bundles/beta_needs_owner_validation.json --owner-response fixtures/owner_responses/beta_lina_validates_old_proposal.json
+```
+
+Apply simulated retrieval and re-run the agent loop:
+
+```bash
+data-source-ranking run-agent fixtures/bundles/gamma_blocked.json --simulated-retrieval fixtures/simulated_retrieval/gammahealth_retrieves_validated_context.json
+```
+
+Inspect a retrieval no-hit case that remains blocked:
+
+```bash
+data-source-ranking run-agent fixtures/bundles/gamma_blocked.json --simulated-retrieval fixtures/simulated_retrieval/gammahealth_no_retrieval_hit.json
+```
+
 Print JSON for API or UI work:
 
 ```bash
 data-source-ranking decide fixtures/bundles/acme_auto_handoff.json --json --as-of "$AS_OF"
 data-source-ranking apply-review fixtures/reviews/unclear_owner_choose_owner.json --json
+data-source-ranking run-agent fixtures/bundles/beta_needs_owner_validation.json --json --as-of "$AS_OF"
+data-source-ranking run-agent fixtures/bundles/beta_needs_owner_validation.json --owner-response fixtures/owner_responses/beta_lina_validates_old_proposal.json --json
+data-source-ranking run-agent fixtures/bundles/gamma_blocked.json --simulated-retrieval fixtures/simulated_retrieval/gammahealth_retrieves_validated_context.json --json
 ```
 
 ## Decision Demos
@@ -115,7 +143,7 @@ data-source-ranking apply-review fixtures/reviews/unclear_owner_choose_owner.jso
 
 ### `validate-fixtures`
 
-Checks source, bundle, and review fixture JSON files.
+Checks source, bundle, review, owner-response, and simulated-retrieval fixture JSON files.
 
 ```bash
 data-source-ranking validate-fixtures fixtures
@@ -159,6 +187,16 @@ data-source-ranking apply-review fixtures/reviews/similar_client_use_directional
 
 Use `--json` when tests, API code, or UI code need the full structured payload.
 
+### `run-agent`
+
+Runs the bounded deterministic agent loop for a bundle.
+
+```bash
+data-source-ranking run-agent fixtures/bundles/beta_needs_owner_validation.json --as-of "$AS_OF"
+```
+
+The loop records selected actions, stop reasons, and audit events. Use `--owner-response` to apply owner validation, `--simulated-retrieval` to add fixture-backed retrieved sources, `--max-iterations` to exercise the guardrail contract, and `--json` to inspect the full `AgentRunResult`.
+
 ## Docs
 
 - [Fixture conventions and scenario index](fixtures/README.md)
@@ -183,4 +221,6 @@ python -m data_source_ranking.cli validate-fixtures fixtures
 - Historical reliability uses static defaults until real feedback history exists.
 - The system detects sensitive evidence overlap, but it does not compare claim meaning for semantic contradictions yet.
 - Review-response transitions apply prompt answers to the current decision state. They do not run a full recompute.
+- The `run-agent` command uses deterministic loop actions rather than live LLM tool execution.
+- `run-agent` accepts either owner response or simulated retrieval in one run, not both yet.
 - A polished presentation UI remains Week 3 work.

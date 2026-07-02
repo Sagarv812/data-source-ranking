@@ -1,0 +1,16 @@
+{
+  "bundle_path": "fixtures/bundles/beta_needs_owner_validation.json",
+  "as_of": "2026-06-21",
+  "response": {
+    "bundle_id": "bundle_beta_needs_owner_validation",
+    "source_id": "src_betaworks_old_proposal_with_owner",
+    "owner_id": "user_lina",
+    "owner_name": "Lina Rao",
+    "outcome": "accepted",
+    "validated_claim_ids": [
+      "claim_betaworks_prior_pilot",
+      "claim_betaworks_disruption_concern"
+    ],
+    "notes": "The 2025 pilot context is still safe to use for expansion outreach. BetaWorks still cares about minimizing customer-success disruption during rollout."
+  }
+}

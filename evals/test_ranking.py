@@ -23,6 +23,8 @@ def source_fixture_paths() -> list[Path]:
         for path in Path("fixtures").glob("*/*.json")
         if "bundles" not in path.parts
         and "reviews" not in path.parts
+        and "owner_responses" not in path.parts
+        and "simulated_retrieval" not in path.parts
         and path.name != "README.md"
     )
 

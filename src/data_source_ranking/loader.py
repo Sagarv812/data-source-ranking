@@ -5,7 +5,9 @@ from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
 
-from data_source_ranking.models import SourceBundle, SourceBundleFixture, SourceFixture
+from data_source_ranking.agents.retrieval import SimulatedRetrievalFixture
+from data_source_ranking.agents.state import OwnerResponseFixture
+from data_source_ranking.models import Source, SourceBundle, SourceBundleFixture, SourceFixture
 from data_source_ranking.review_responses import ReviewResponseFixture
 
 
@@ -59,14 +61,57 @@ def load_review_response_fixture(path: str | Path) -> ReviewResponseFixture:
     return _validate_fixture(Path(path), ReviewResponseFixture)
 
 
+def load_owner_response_fixture(path: str | Path) -> OwnerResponseFixture:
+    return _validate_fixture(Path(path), OwnerResponseFixture)
+
+
+def load_simulated_retrieval_fixture(path: str | Path) -> SimulatedRetrievalFixture:
+    return _validate_fixture(Path(path), SimulatedRetrievalFixture)
+
+
+def load_simulated_retrieval_sources(path: str | Path) -> list[Source]:
+    retrieval_path = Path(path)
+    fixture = load_simulated_retrieval_fixture(retrieval_path)
+    return [
+        load_source_fixture(_resolve_source_ref(retrieval_path, source_ref)).source
+        for source_ref in fixture.retrieved_source_refs
+    ]
+
+
 def is_bundle_fixture(path: str | Path) -> bool:
     data = _load_json(Path(path))
     return "source_refs" in data
 
 
+def is_owner_response_fixture(path: str | Path) -> bool:
+    data = _load_json(Path(path))
+    response = data.get("response")
+    return (
+        "bundle_path" in data
+        and isinstance(response, dict)
+        and "source_id" in response
+        and "owner_id" in response
+    )
+
+
+def is_simulated_retrieval_fixture(path: str | Path) -> bool:
+    data = _load_json(Path(path))
+    return (
+        "bundle_id" in data
+        and isinstance(data.get("query"), dict)
+        and isinstance(data.get("retrieved_source_refs"), list)
+    )
+
+
 def is_review_response_fixture(path: str | Path) -> bool:
     data = _load_json(Path(path))
-    return "bundle_path" in data and "response" in data
+    response = data.get("response")
+    return (
+        "bundle_path" in data
+        and isinstance(response, dict)
+        and "prompt_issue_type" in response
+        and "selected_choice_id" in response
+    )
 
 
 def _resolve_source_ref(bundle_path: Path, source_ref: str) -> Path:
