@@ -138,6 +138,14 @@ curl http://127.0.0.1:8000/fixtures
 curl http://127.0.0.1:8000/fixtures/bundles/acme_auto_handoff
 ```
 
+Start the local UI:
+
+```bash
+cd ui
+npm install
+npm run dev
+```
+
 Print JSON for API or UI work:
 
 ```bash
