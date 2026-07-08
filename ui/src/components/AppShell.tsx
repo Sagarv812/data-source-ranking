@@ -1,7 +1,8 @@
-import { Activity, Bell, Database, History, RefreshCw, Settings2, ShieldCheck } from 'lucide-react'
+import { Activity, Bell, Database, History, LogOut, RefreshCw, Settings2, ShieldCheck } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 
+import { useAuth } from '../app/auth-context'
 import { StatusBadge } from './StatusBadge'
 
 export function AppShell({
@@ -13,6 +14,9 @@ export function AppShell({
   children: ReactNode
   onRefresh: () => void
 }) {
+  const auth = useAuth()
+  const initials = userInitials(auth.displayName)
+
   return (
     <div className="h-dvh overflow-hidden text-ink">
       <div className="app-frame grid h-dvh w-full overflow-hidden lg:grid-cols-[244px_minmax(0,1fr)]">
@@ -54,7 +58,7 @@ export function AppShell({
         </aside>
 
         <div className="flex min-h-0 min-w-0 flex-col">
-          <header className="shrink-0 border-b border-border-soft bg-[var(--surface-panel)] px-4 py-4 sm:px-6 lg:px-7">
+          <header className="app-topbar shrink-0 border-b border-border-soft bg-[var(--surface-panel)] px-4 py-4 sm:px-6 lg:px-7">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <Link to="/" className="focus-ring flex items-center gap-3 rounded-lg lg:hidden">
                 <span className="grid size-11 place-items-center rounded-lg bg-primary text-white shadow-soft">
@@ -90,16 +94,25 @@ export function AppShell({
                     <Settings2 size={18} />
                   </NavLink>
                   <span className="mx-1 hidden h-6 w-px bg-border-soft sm:block" aria-hidden="true" />
-                  <Link
-                    to="/settings?section=user"
+                  <span
                     className="user-chip hidden items-center gap-2 px-2 pr-3 text-sm font-bold text-ink sm:flex"
-                    aria-label="User settings"
+                    title={auth.displayName}
                   >
                     <span className="grid size-8 place-items-center rounded-lg bg-primary text-xs font-extrabold text-white shadow-soft">
-                      LS
+                      {initials}
                     </span>
-                    Local
-                  </Link>
+                    <span className="max-w-32 truncate">{auth.displayName}</span>
+                  </span>
+                  {auth.configured ? (
+                    <button
+                      type="button"
+                      className="utility-button"
+                      onClick={() => void auth.signOut()}
+                      aria-label="Sign out"
+                    >
+                      <LogOut size={18} />
+                    </button>
+                  ) : null}
                 </div>
                 <StatusBadge tone={apiConnected ? 'mint' : 'rose'}>
                   <Activity size={14} />
@@ -121,12 +134,27 @@ export function AppShell({
   )
 }
 
+function userInitials(displayName: string) {
+  const parts = displayName
+    .split(/[^A-Za-z0-9]+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+
+  if (parts.length === 0) {
+    return 'U'
+  }
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase()
+  }
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+}
+
 function SidebarLink({ to, icon, children }: { to: string; icon: ReactNode; children: ReactNode }) {
   return (
     <NavLink
       to={to}
       className={({ isActive }) =>
-        `flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold transition ${
+        `flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold transition-colors duration-150 ${
           isActive ? 'bg-primary text-white shadow-soft' : 'text-ink-muted hover:bg-[var(--surface-hover)] hover:text-ink'
         }`
       }
@@ -142,7 +170,7 @@ function TopLink({ to, icon, children }: { to: string; icon: ReactNode; children
     <NavLink
       to={to}
       className={({ isActive }) =>
-        `inline-flex min-h-9 items-center gap-2 rounded-lg px-2 text-sm font-semibold transition sm:px-3 ${
+        `inline-flex min-h-9 items-center gap-2 rounded-lg px-2 text-sm font-semibold transition-colors duration-150 sm:px-3 ${
           isActive ? 'bg-primary text-white shadow-soft' : 'text-ink-muted hover:bg-[var(--surface-hover)] hover:text-ink'
         }`
       }

@@ -241,7 +241,7 @@ Use `apply-review` to apply a fixture-backed review answer:
 data-source-ranking apply-review fixtures/reviews/similar_client_use_directional.json
 ```
 
-Both commands support `--json`. The JSON output should drive tests, API responses, and the future UI.
+Both commands support `--json`. The JSON output should drive tests, API responses, and the local UI.
 
 ## Deferred Work
 

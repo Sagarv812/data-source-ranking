@@ -62,5 +62,9 @@ export function DecisionBadge({ decision }: { decision: string }) {
 function humanize(value: string) {
   return value
     .replaceAll('_', ' ')
+    .toLowerCase()
     .replace(/\b\w/g, (letter) => letter.toUpperCase())
+    .replace(/\bApi\b/g, 'API')
+    .replace(/\bCrm\b/g, 'CRM')
+    .replace(/\bQbr\b/g, 'QBR')
 }

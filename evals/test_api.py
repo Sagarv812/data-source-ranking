@@ -208,6 +208,82 @@ def test_rank_endpoint_returns_ranked_bundle_for_bundle_fixture() -> None:
     assert payload["ranked_sources"][0]["source_id"] == "src_acme_recent_crm_note"
     assert payload["ranked_sources"][0]["tier"] == "strong"
     assert payload["metadata"]["decision_policy"] == "rule_based_v1"
+    assert payload["metadata"]["bundle_title"] == "Acme auto handoff"
+    assert payload["metadata"]["source_titles"]["src_acme_recent_crm_note"] == (
+        "Acme renewal prep note"
+    )
+
+
+def test_custom_rank_endpoint_returns_ranked_manual_bundle() -> None:
+    response = post(
+        "/rank/custom",
+        {
+            "as_of": "2026-06-21",
+            "bundle": {
+                "id": "bundle_manual_acme",
+                "title": "Manual Acme evidence",
+                "context_need": {
+                    "id": "need_manual_acme",
+                    "client_id": "client_manual_acme",
+                    "email_goal": "Prepare a renewal handoff.",
+                    "needed_claims": [
+                        {
+                            "id": "need_claim_current_concern",
+                            "type": "current_client_concern",
+                            "description": "Current client concern.",
+                            "required": True,
+                        }
+                    ],
+                    "risk_tolerance": "normal",
+                },
+                "sources": [
+                    {
+                        "id": "src_manual_account_note",
+                        "type": "crm_note",
+                        "title": "Manual account note",
+                        "summary": "The client asked for a tighter implementation plan.",
+                        "client_id": "client_manual_acme",
+                        "directness_relation": "same_client_same_opportunity",
+                        "created_at": "2026-06-15",
+                        "updated_at": "2026-06-15",
+                        "author": {
+                            "id": "user_mina",
+                            "name": "Mina Patel",
+                            "role": "account_owner",
+                        },
+                        "owner_candidates": [
+                            {
+                                "id": "user_mina",
+                                "name": "Mina Patel",
+                                "role": "account_owner",
+                                "reason": "Account owner and note author.",
+                                "confidence": 0.9,
+                            }
+                        ],
+                        "source_system": "salesforce",
+                        "claims": [
+                            {
+                                "id": "claim_manual_timeline",
+                                "text": "The client asked for a tighter implementation plan.",
+                                "claim_type": "client_concern",
+                                "supports_needed_claim_ids": ["need_claim_current_concern"],
+                                "source_ids": ["src_manual_account_note"],
+                            }
+                        ],
+                    }
+                ],
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["id"] == "bundle_manual_acme"
+    assert payload["ranked_sources"][0]["source_id"] == "src_manual_account_note"
+    assert payload["metadata"]["bundle_title"] == "Manual Acme evidence"
+    assert payload["metadata"]["source_titles"] == {
+        "src_manual_account_note": "Manual account note"
+    }
 
 
 def test_decide_endpoint_returns_automation_decision_for_bundle_fixture() -> None:
@@ -601,6 +677,65 @@ def test_feedback_snapshot_endpoint_returns_500_for_malformed_store(
     assert "invalid feedback event on line 1" in response.json()["detail"]
 
 
+def test_admin_reset_local_data_clears_selected_product_stores(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    run_store_path = tmp_path / "api_runs.jsonl"
+    review_store_path = tmp_path / "api_run_reviews.jsonl"
+    feedback_store_path = tmp_path / "feedback_events.jsonl"
+    monkeypatch.setattr(api.main, "API_RUN_STORE_PATH", run_store_path)
+    monkeypatch.setattr(api.main, "API_RUN_REVIEW_STORE_PATH", review_store_path)
+    monkeypatch.setattr(api.main, "API_FEEDBACK_STORE_PATH", feedback_store_path)
+
+    run_response = post(
+        "/runs/decide",
+        {"fixture_id": "bundles/northstar_similar_client_review"},
+    )
+    run_id = run_response.json()["run_id"]
+    review_response = post(
+        f"/runs/{run_id}/review",
+        {"selected_choice_id": "use_directional_with_label"},
+    )
+    feedback_response = post(
+        "/feedback",
+        {"feedback_fixture_id": "feedback/acme_handoff_accepted"},
+    )
+
+    assert run_response.status_code == 200
+    assert review_response.status_code == 200
+    assert feedback_response.status_code == 200
+    assert run_store_path.exists()
+    assert review_store_path.exists()
+    assert feedback_store_path.exists()
+
+    response = post(
+        "/admin/reset-local-data",
+        {"runs": True, "reviews": True, "feedback": True},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "reset": ["runs", "reviews", "feedback"],
+        "counts_before": {"runs": 1, "reviews": 1, "feedback": 1},
+    }
+    assert not run_store_path.exists()
+    assert not review_store_path.exists()
+    assert not feedback_store_path.exists()
+    assert get("/runs").json() == {"runs": []}
+    assert get("/reviews/queue").json() == {"items": [], "counts": {}}
+    assert get("/feedback/snapshot").json()["metadata"]["feedback_event_count"] == 0
+
+
+def test_admin_reset_local_data_requires_a_selected_scope() -> None:
+    response = post("/admin/reset-local-data", {})
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "Choose at least one local data area to reset.",
+    }
+
+
 def test_runs_decide_endpoint_persists_decision_run(
     tmp_path: Path,
     monkeypatch,
@@ -644,6 +779,7 @@ def test_runs_decide_endpoint_persists_decision_run(
             "kind": "decision",
             "bundle_id": "bundle_acme_auto_handoff",
             "fixture_id": "bundles/acme_auto_handoff",
+            "title": None,
             "created_at": payload["created_at"],
             "decision": "auto_handoff",
             "final_decision": None,
@@ -653,6 +789,97 @@ def test_runs_decide_endpoint_persists_decision_run(
     detail_response = get(f"/runs/{payload['run_id']}")
     assert detail_response.status_code == 200
     assert detail_response.json() == payload
+
+
+def test_runs_custom_decide_endpoint_persists_manual_scenario(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    store_path = tmp_path / "api_runs.jsonl"
+    monkeypatch.setattr(api.main, "API_RUN_STORE_PATH", store_path)
+    payload = {
+        "as_of": "2026-06-21",
+        "bundle": {
+            "id": "bundle_manual_acme",
+            "title": "Manual Acme renewal context",
+            "context_need": {
+                "id": "need_manual_acme",
+                "client_id": "client_manual_acme",
+                "email_goal": "Prepare a renewal handoff.",
+                "needed_claims": [
+                    {
+                        "id": "need_claim_current_concern",
+                        "type": "current_client_concern",
+                        "description": "Current concern to mention.",
+                        "required": True,
+                    }
+                ],
+                "risk_tolerance": "normal",
+            },
+            "sources": [
+                {
+                    "id": "src_manual_crm_note",
+                    "type": "crm_note",
+                    "title": "Manual CRM note",
+                    "summary": "Acme asked for a clearer implementation plan.",
+                    "client_id": "client_manual_acme",
+                    "directness_relation": "same_client_same_opportunity",
+                    "created_at": "2026-06-15",
+                    "updated_at": "2026-06-15",
+                    "author": {
+                        "id": "user_manual_owner",
+                        "name": "Mina Patel",
+                        "role": "account_owner",
+                    },
+                    "owner_candidates": [
+                        {
+                            "id": "user_manual_owner",
+                            "name": "Mina Patel",
+                            "role": "account_owner",
+                            "reason": "Source author and account owner.",
+                            "confidence": 0.92,
+                        }
+                    ],
+                    "source_system": "salesforce",
+                    "claims": [
+                        {
+                            "id": "claim_manual_current_concern",
+                            "text": "Acme asked for a clearer implementation plan.",
+                            "claim_type": "client_concern",
+                            "supports_needed_claim_ids": ["need_claim_current_concern"],
+                        }
+                    ],
+                }
+            ],
+            "metadata": {"created_from": "manual_builder"},
+        },
+    }
+
+    response = post("/runs/custom/decide", payload)
+
+    assert response.status_code == 200
+    run = response.json()
+    assert run["kind"] == "decision"
+    assert run["bundle_id"] == "bundle_manual_acme"
+    assert run["fixture_id"] == "custom/bundle_manual_acme"
+    assert run["request"]["source"] == "manual_builder"
+    assert run["request"]["scenario_title"] == "Manual Acme renewal context"
+    assert run["result"]["bundle_id"] == "bundle_manual_acme"
+
+    list_response = get("/runs")
+    assert list_response.status_code == 200
+    assert list_response.json()["runs"] == [
+        {
+            "run_id": run["run_id"],
+            "kind": "decision",
+            "bundle_id": "bundle_manual_acme",
+            "fixture_id": "custom/bundle_manual_acme",
+            "title": "Manual Acme renewal context",
+            "created_at": run["created_at"],
+            "decision": run["result"]["decision"],
+            "final_decision": None,
+        }
+    ]
 
 
 def test_runs_agent_endpoint_persists_agent_run(
@@ -686,6 +913,7 @@ def test_runs_agent_endpoint_persists_agent_run(
             "kind": "agent",
             "bundle_id": "bundle_beta_needs_owner_validation",
             "fixture_id": "bundles/beta_needs_owner_validation",
+            "title": None,
             "created_at": payload["created_at"],
             "decision": None,
             "final_decision": "auto_handoff",
@@ -777,6 +1005,86 @@ def test_product_api_workflow_supports_ui_run_review_and_feedback(
     snapshot_response = get("/feedback/snapshot")
     assert snapshot_response.status_code == 200
     assert snapshot_response.json() == feedback_payload["feedback_snapshot"]
+
+
+def test_reviews_queue_endpoint_summarizes_pending_answered_and_learning(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(api.main, "API_RUN_STORE_PATH", tmp_path / "api_runs.jsonl")
+    monkeypatch.setattr(
+        api.main,
+        "API_RUN_REVIEW_STORE_PATH",
+        tmp_path / "api_run_reviews.jsonl",
+    )
+    monkeypatch.setattr(
+        api.main,
+        "API_FEEDBACK_STORE_PATH",
+        tmp_path / "feedback_events.jsonl",
+    )
+    pending_response = post(
+        "/runs/decide",
+        {"fixture_id": "bundles/delta_contradictory_sources"},
+    )
+    learning_response = post(
+        "/runs/decide",
+        {"fixture_id": "bundles/northstar_similar_client_review"},
+    )
+    answered_response = post(
+        "/runs/decide",
+        {"fixture_id": "bundles/northstar_similar_client_review"},
+    )
+    learning_run_id = learning_response.json()["run_id"]
+    answered_run_id = answered_response.json()["run_id"]
+
+    learning_review_response = post(
+        f"/runs/{learning_run_id}/review",
+        {
+            "selected_choice_id": "use_directional_with_label",
+            "notes": "Use as directional context.",
+        },
+    )
+    answered_review_response = post(
+        f"/runs/{answered_run_id}/review",
+        {
+            "selected_choice_id": "use_directional_with_label",
+            "notes": "Use as directional context.",
+        },
+    )
+    answered_review_event_id = answered_review_response.json()["review_event"][
+        "review_event_id"
+    ]
+    feedback_response = post(
+        f"/runs/{answered_run_id}/feedback",
+        {
+            "decision_outcome": "blocked_confirmed",
+            "metadata": {
+                "review_event_id": answered_review_event_id,
+                "submitted_from": "review_feedback",
+            },
+        },
+    )
+
+    response = get("/reviews/queue")
+
+    assert pending_response.status_code == 200
+    assert learning_review_response.status_code == 200
+    assert feedback_response.status_code == 200
+    assert response.status_code == 200
+    payload = response.json()
+    items_by_run_id = {item["run_id"]: item for item in payload["items"]}
+    assert items_by_run_id[pending_response.json()["run_id"]]["status"] == "pending_review"
+    assert items_by_run_id[learning_run_id]["status"] == "needs_learning"
+    assert items_by_run_id[learning_run_id]["latest_review_event_id"] == (
+        learning_review_response.json()["review_event"]["review_event_id"]
+    )
+    assert items_by_run_id[answered_run_id]["status"] == "answered"
+    assert items_by_run_id[answered_run_id]["learning_feedback_count"] == 1
+    assert payload["counts"] == {
+        "answered": 1,
+        "needs_learning": 1,
+        "pending_review": 1,
+    }
 
 
 def test_runs_review_endpoint_appends_inline_review_event(
@@ -1100,6 +1408,7 @@ def test_runs_feedback_endpoint_records_rejected_source_outcomes(
         {
             "decision_outcome": "rejected",
             "correction_notes": "Similar-client evidence was too indirect.",
+            "owner_response_outcome": "not_resolved",
             "source_outcomes": [
                 {
                     "source_id": "src_northstar_similar_client_proposal",
@@ -1119,6 +1428,7 @@ def test_runs_feedback_endpoint_records_rejected_source_outcomes(
     assert event["source_outcomes"][0]["reason"] == (
         "rejected source feedback from run review."
     )
+    assert event["owner_response_outcome"] == "not_resolved"
     assert event["correction_notes"] == "Similar-client evidence was too indirect."
 
 

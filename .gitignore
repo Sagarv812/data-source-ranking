@@ -8,6 +8,17 @@ __pycache__/
 *.py[cod]
 .agents/
 .codex/
-.venv/
+.interface-design/
 notes.md
 AGENT.md
+.env*.local
+ui/.env*.local
+
+# local runtime data
+data/*.jsonl
+
+# amplify
+node_modules
+.amplify
+amplify_outputs*
+amplifyconfiguration*

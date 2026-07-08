@@ -11,18 +11,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import Field
 
 from api import settings
+from api.product_store import DynamoDbProductStore, LocalJsonlProductStore, ProductStore
 from api.run_store import (
     ApiRunKind,
     ApiRunListResponse,
     ApiRunRecord,
     ApiRunReviewEvent,
     RunStoreError,
-    append_run_record,
-    append_run_review_event,
     create_run_record,
     create_run_review_event,
-    load_run_records,
-    load_run_review_events,
     run_summary,
 )
 from data_source_ranking.agents.loop import run_agent
@@ -37,9 +34,7 @@ from data_source_ranking.feedback import (
     ReliabilitySnapshot,
     SourceOutcome,
     SourceOutcomeStatus,
-    append_feedback_event,
     build_reliability_snapshot,
-    load_feedback_events,
 )
 from data_source_ranking.loader import (
     FixtureLoadError,
@@ -76,9 +71,54 @@ from data_source_ranking.review_responses import (
 from data_source_ranking.scoring.common import DEFAULT_AS_OF
 
 API_FIXTURE_ROOT = settings.API_FIXTURE_ROOT
+API_CORS_ALLOW_ORIGINS = settings.API_CORS_ALLOW_ORIGINS
 API_FEEDBACK_STORE_PATH = settings.API_FEEDBACK_STORE_PATH
 API_RUN_STORE_PATH = settings.API_RUN_STORE_PATH
 API_RUN_REVIEW_STORE_PATH = settings.API_RUN_REVIEW_STORE_PATH
+API_PRODUCT_STORE_BACKEND = settings.API_PRODUCT_STORE_BACKEND
+API_DYNAMODB_RUN_TABLE = settings.API_DYNAMODB_RUN_TABLE
+API_DYNAMODB_REVIEW_EVENT_TABLE = settings.API_DYNAMODB_REVIEW_EVENT_TABLE
+API_DYNAMODB_FEEDBACK_TABLE = settings.API_DYNAMODB_FEEDBACK_TABLE
+AWS_REGION = settings.AWS_REGION
+
+
+def _product_store() -> ProductStore:
+    if API_PRODUCT_STORE_BACKEND == "local_jsonl":
+        return LocalJsonlProductStore(
+            run_store_path=API_RUN_STORE_PATH,
+            run_review_store_path=API_RUN_REVIEW_STORE_PATH,
+            feedback_store_path=API_FEEDBACK_STORE_PATH,
+        )
+    if API_PRODUCT_STORE_BACKEND == "dynamodb":
+        table_names = _dynamodb_table_names()
+        return DynamoDbProductStore.from_table_names(
+            run_table_name=table_names["runs"],
+            review_event_table_name=table_names["reviews"],
+            feedback_table_name=table_names["feedback"],
+            region_name=AWS_REGION,
+        )
+    raise HTTPException(
+        status_code=500,
+        detail=f"Unsupported API_PRODUCT_STORE_BACKEND: {API_PRODUCT_STORE_BACKEND}.",
+    )
+
+
+def _dynamodb_table_names() -> dict[str, str]:
+    table_names = {
+        "runs": API_DYNAMODB_RUN_TABLE,
+        "reviews": API_DYNAMODB_REVIEW_EVENT_TABLE,
+        "feedback": API_DYNAMODB_FEEDBACK_TABLE,
+    }
+    missing_scopes = [scope for scope, table_name in table_names.items() if not table_name]
+    if missing_scopes:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "DynamoDB product store is missing table configuration for: "
+                + ", ".join(missing_scopes)
+            ),
+        )
+    return {scope: str(table_name) for scope, table_name in table_names.items()}
 
 
 class FixtureKind(StrEnum):
@@ -129,6 +169,16 @@ class AgentRunRequest(FixtureRunRequest):
     simulated_retrieval_fixture_id: str | None = None
 
 
+class CustomDecisionRunRequest(StrictModel):
+    bundle: SourceBundle
+    as_of: date = DEFAULT_AS_OF
+
+
+class CustomRankRequest(StrictModel):
+    bundle: SourceBundle
+    as_of: date = DEFAULT_AS_OF
+
+
 class ApplyReviewRequest(StrictModel):
     review_fixture_id: str = Field(min_length=1)
     as_of: date | None = None
@@ -161,6 +211,7 @@ class RunSourceFeedbackRequest(StrictModel):
 class RunFeedbackRequest(StrictModel):
     decision_outcome: DecisionOutcome
     source_outcomes: list[RunSourceFeedbackRequest] = Field(default_factory=list)
+    owner_response_outcome: str | None = None
     generated_handoff_accepted: bool | None = None
     correction_notes: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -171,8 +222,41 @@ class RunFeedbackResponse(StrictModel):
     feedback_snapshot: ReliabilitySnapshot
 
 
+class ReviewQueueItem(StrictModel):
+    run_id: str = Field(min_length=1)
+    kind: ApiRunKind
+    bundle_id: str = Field(min_length=1)
+    fixture_id: str = Field(min_length=1)
+    created_at: datetime
+    decision: str
+    status: str = Field(min_length=1)
+    issue_type: str | None = None
+    question: str | None = None
+    source_count: int = 0
+    review_event_count: int = 0
+    latest_review_event_id: str | None = None
+    latest_reviewed_at: datetime | None = None
+    learning_feedback_count: int = 0
+
+
+class ReviewQueueResponse(StrictModel):
+    items: list[ReviewQueueItem] = Field(default_factory=list)
+    counts: dict[str, int] = Field(default_factory=dict)
+
+
 class FeedbackRequest(StrictModel):
     feedback_fixture_id: str = Field(min_length=1)
+
+
+class ResetLocalDataRequest(StrictModel):
+    runs: bool = False
+    reviews: bool = False
+    feedback: bool = False
+
+
+class ResetLocalDataResponse(StrictModel):
+    reset: list[str] = Field(default_factory=list)
+    counts_before: dict[str, int] = Field(default_factory=dict)
 
 
 app = FastAPI(
@@ -181,8 +265,8 @@ app = FastAPI(
 )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-    allow_credentials=True,
+    allow_origins=API_CORS_ALLOW_ORIGINS,
+    allow_credentials="*" not in API_CORS_ALLOW_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -222,7 +306,12 @@ async def get_fixture(fixture_id: str) -> FixtureDetailResponse:
 
 @app.post("/rank", response_model=RankedBundle)
 async def rank(request: FixtureRunRequest) -> RankedBundle:
-    return rank_bundle(_bundle_from_request(request), as_of=request.as_of)
+    return _rank_bundle_for_response(_bundle_from_request(request), as_of=request.as_of)
+
+
+@app.post("/rank/custom", response_model=RankedBundle)
+async def rank_custom(request: CustomRankRequest) -> RankedBundle:
+    return _rank_bundle_for_response(request.bundle, as_of=request.as_of)
 
 
 @app.post("/decide", response_model=AutomationDecision)
@@ -247,6 +336,21 @@ async def create_decision_run(request: FixtureRunRequest) -> ApiRunRecord:
     )
 
 
+@app.post("/runs/custom/decide", response_model=ApiRunRecord)
+async def create_custom_decision_run(request: CustomDecisionRunRequest) -> ApiRunRecord:
+    decision = decide(request.bundle, as_of=request.as_of)
+    request_payload = request.model_dump(mode="json")
+    request_payload["source"] = "manual_builder"
+    request_payload["scenario_title"] = request.bundle.title
+    return _append_api_run(
+        ApiRunKind.DECISION,
+        bundle_id=decision.bundle_id,
+        fixture_id=_custom_fixture_id(request.bundle),
+        request=request_payload,
+        result=decision.model_dump(mode="json"),
+    )
+
+
 @app.post("/runs/agent", response_model=ApiRunRecord)
 async def create_agent_run(request: AgentRunRequest) -> ApiRunRecord:
     result = _agent_run_from_request(request)
@@ -262,7 +366,7 @@ async def create_agent_run(request: AgentRunRequest) -> ApiRunRecord:
 @app.get("/runs", response_model=ApiRunListResponse)
 async def list_runs() -> ApiRunListResponse:
     try:
-        records = load_run_records(API_RUN_STORE_PATH)
+        records = _product_store().load_runs()
     except RunStoreError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return ApiRunListResponse(runs=[run_summary(record) for record in records])
@@ -271,6 +375,43 @@ async def list_runs() -> ApiRunListResponse:
 @app.get("/runs/{run_id}", response_model=ApiRunRecord)
 async def get_run(run_id: str) -> ApiRunRecord:
     return _run_record_with_review_events(_api_run_by_id(run_id))
+
+
+@app.post("/admin/reset-local-data", response_model=ResetLocalDataResponse)
+async def reset_local_data(request: ResetLocalDataRequest) -> ResetLocalDataResponse:
+    reset_scopes = _reset_scopes_from_request(request)
+    if not reset_scopes:
+        raise HTTPException(
+            status_code=400,
+            detail="Choose at least one local data area to reset.",
+        )
+
+    try:
+        counts_before = _product_store().reset(reset_scopes)
+    except (OSError, ValueError) as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return ResetLocalDataResponse(
+        reset=reset_scopes,
+        counts_before=counts_before,
+    )
+
+
+@app.get("/reviews/queue", response_model=ReviewQueueResponse)
+async def review_queue() -> ReviewQueueResponse:
+    try:
+        store = _product_store()
+        records = store.load_runs()
+        review_events = store.load_review_events()
+        feedback_events = store.load_feedback()
+    except (RunStoreError, FeedbackStoreError) as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    items = _review_queue_items(records, review_events, feedback_events)
+    counts: dict[str, int] = {}
+    for item in items:
+        counts[item.status] = counts.get(item.status, 0) + 1
+    return ReviewQueueResponse(items=items, counts=counts)
 
 
 @app.post("/runs/{run_id}/review", response_model=RunReviewResponse)
@@ -288,7 +429,7 @@ async def review_run(run_id: str, request: RunReviewRequest) -> RunReviewRespons
         result=result.model_dump(mode="json"),
     )
     try:
-        append_run_review_event(event, API_RUN_REVIEW_STORE_PATH)
+        _product_store().append_review_event(event)
     except OSError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return RunReviewResponse(
@@ -307,8 +448,9 @@ async def record_run_feedback(
     decision = _decision_from_run(record)
     event = _feedback_event_from_request(record, decision, request)
     try:
-        stored_event = append_feedback_event(event, API_FEEDBACK_STORE_PATH)
-        snapshot = build_reliability_snapshot(load_feedback_events(API_FEEDBACK_STORE_PATH))
+        store = _product_store()
+        stored_event = store.append_feedback(event)
+        snapshot = build_reliability_snapshot(store.load_feedback())
     except FeedbackStoreError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except OSError as exc:
@@ -389,7 +531,7 @@ async def record_feedback(request: FeedbackRequest) -> FeedbackEvent:
         )
     try:
         fixture = load_feedback_fixture(path)
-        return append_feedback_event(fixture.event, API_FEEDBACK_STORE_PATH)
+        return _product_store().append_feedback(fixture.event)
     except (FixtureLoadError, OSError) as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
@@ -397,7 +539,7 @@ async def record_feedback(request: FeedbackRequest) -> FeedbackEvent:
 @app.get("/feedback/snapshot", response_model=ReliabilitySnapshot)
 async def feedback_snapshot() -> ReliabilitySnapshot:
     try:
-        return build_reliability_snapshot(load_feedback_events(API_FEEDBACK_STORE_PATH))
+        return build_reliability_snapshot(_product_store().load_feedback())
     except FeedbackStoreError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
@@ -449,6 +591,29 @@ def _decide_from_request(request: FixtureRunRequest) -> AutomationDecision:
     return decide(_bundle_from_request(request), as_of=request.as_of)
 
 
+def _rank_bundle_for_response(bundle: SourceBundle, as_of: date) -> RankedBundle:
+    ranked = rank_bundle(bundle, as_of=as_of)
+    return ranked.model_copy(
+        update={
+            "metadata": {
+                **ranked.metadata,
+                "as_of": as_of.isoformat(),
+                "bundle_title": bundle.title,
+                "source_titles": {
+                    source.id: source.title for source in bundle.sources
+                },
+                "source_summaries": {
+                    source.id: source.summary for source in bundle.sources if source.summary
+                },
+            },
+        }
+    )
+
+
+def _custom_fixture_id(bundle: SourceBundle) -> str:
+    return f"custom/{bundle.id}"
+
+
 def _append_api_run(
     kind: ApiRunKind,
     bundle_id: str,
@@ -457,15 +622,14 @@ def _append_api_run(
     result: dict[str, Any],
 ) -> ApiRunRecord:
     try:
-        return append_run_record(
+        return _product_store().append_run(
             create_run_record(
                 kind=kind,
                 bundle_id=bundle_id,
                 fixture_id=fixture_id,
                 request=request,
                 result=result,
-            ),
-            API_RUN_STORE_PATH,
+            )
         )
     except OSError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -473,7 +637,7 @@ def _append_api_run(
 
 def _api_run_by_id(run_id: str) -> ApiRunRecord:
     try:
-        records = load_run_records(API_RUN_STORE_PATH)
+        records = _product_store().load_runs()
     except RunStoreError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     record = next((record for record in records if record.run_id == run_id), None)
@@ -484,7 +648,7 @@ def _api_run_by_id(run_id: str) -> ApiRunRecord:
 
 def _run_review_events_for_run(run_id: str) -> list[ApiRunReviewEvent]:
     try:
-        events = load_run_review_events(API_RUN_REVIEW_STORE_PATH)
+        events = _product_store().load_review_events()
     except RunStoreError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return [event for event in events if event.run_id == run_id]
@@ -494,6 +658,106 @@ def _run_record_with_review_events(record: ApiRunRecord) -> ApiRunRecord:
     return record.model_copy(
         update={"review_events": _run_review_events_for_run(record.run_id)}
     )
+
+
+def _reset_scopes_from_request(request: ResetLocalDataRequest) -> list[str]:
+    scopes: list[str] = []
+    if request.runs:
+        scopes.append("runs")
+    if request.reviews:
+        scopes.append("reviews")
+    if request.feedback:
+        scopes.append("feedback")
+    return scopes
+
+
+def _review_queue_items(
+    records: list[ApiRunRecord],
+    review_events: list[ApiRunReviewEvent],
+    feedback_events: list[FeedbackEvent],
+) -> list[ReviewQueueItem]:
+    reviews_by_run: dict[str, list[ApiRunReviewEvent]] = {}
+    for event in review_events:
+        reviews_by_run.setdefault(event.run_id, []).append(event)
+
+    review_feedback_by_event_id = {
+        str(event.metadata.get("review_event_id"))
+        for event in feedback_events
+        if event.metadata.get("review_event_id")
+    }
+    feedback_count_by_run: dict[str, int] = {}
+    for event in feedback_events:
+        run_id = event.metadata.get("run_id")
+        if isinstance(run_id, str) and event.metadata.get("submitted_from") == "review_feedback":
+            feedback_count_by_run[run_id] = feedback_count_by_run.get(run_id, 0) + 1
+
+    items: list[ReviewQueueItem] = []
+    for record in records:
+        try:
+            decision = _decision_from_run(record)
+        except HTTPException:
+            continue
+
+        run_reviews = sorted(
+            reviews_by_run.get(record.run_id, []),
+            key=lambda event: event.created_at,
+        )
+        latest_review = run_reviews[-1] if run_reviews else None
+        status = _review_queue_status(decision, latest_review, review_feedback_by_event_id)
+        if status is None:
+            continue
+
+        prompt = decision.approval_prompt
+        context_request = decision.context_request
+        question = (
+            prompt.question
+            if prompt
+            else context_request.question if context_request else None
+        )
+        issue_type = None
+        if prompt:
+            issue_type = prompt.issue_type
+        elif context_request:
+            issue_type = "context_request"
+        elif decision.blocked_output:
+            issue_type = "blocked"
+        items.append(
+            ReviewQueueItem(
+                run_id=record.run_id,
+                kind=record.kind,
+                bundle_id=record.bundle_id,
+                fixture_id=record.fixture_id,
+                created_at=record.created_at,
+                decision=decision.decision.value,
+                status=status,
+                issue_type=issue_type,
+                question=question,
+                source_count=len(decision.selected_sources),
+                review_event_count=len(run_reviews),
+                latest_review_event_id=latest_review.review_event_id if latest_review else None,
+                latest_reviewed_at=latest_review.created_at if latest_review else None,
+                learning_feedback_count=feedback_count_by_run.get(record.run_id, 0),
+            )
+        )
+    return sorted(items, key=lambda item: item.created_at, reverse=True)
+
+
+def _review_queue_status(
+    decision: AutomationDecision,
+    latest_review: ApiRunReviewEvent | None,
+    review_feedback_by_event_id: set[str],
+) -> str | None:
+    if latest_review is not None:
+        if latest_review.review_event_id in review_feedback_by_event_id:
+            return "answered"
+        return "needs_learning"
+    if decision.approval_prompt is not None:
+        return "pending_review"
+    if decision.context_request is not None:
+        return "needs_context"
+    if decision.blocked_output is not None:
+        return "blocked"
+    return None
 
 
 def _decision_from_run(record: ApiRunRecord) -> AutomationDecision:
@@ -597,6 +861,7 @@ def _feedback_event_from_request(
             rejected_source_ids=rejected_source_ids,
             source_outcomes=source_outcomes,
             user_approval_outcome=request.decision_outcome,
+            owner_response_outcome=request.owner_response_outcome,
             generated_handoff_accepted=request.generated_handoff_accepted,
             correction_notes=request.correction_notes,
             metadata={

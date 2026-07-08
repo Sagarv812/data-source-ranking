@@ -5,10 +5,19 @@ import type {
   AgentRunRequest,
   ApiRunListResponse,
   ApiRunRecord,
+  CustomRankRequest,
+  CustomDecisionRunRequest,
+  FixtureKind,
   FixtureListResponse,
   FixtureRunRequest,
   HealthResponse,
+  RankedBundle,
   ReliabilitySnapshot,
+  ResetLocalDataRequest,
+  ResetLocalDataResponse,
+  RunFeedbackRequest,
+  RunFeedbackResponse,
+  ReviewQueueResponse,
   RunReviewRequest,
   RunReviewResponse,
 } from './types'
@@ -24,6 +33,13 @@ export function useBundleFixturesQuery() {
   return useQuery({
     queryKey: ['fixtures', 'bundle', 'grouped'],
     queryFn: () => apiGet<FixtureListResponse>('/fixtures?kind=bundle&grouped=true'),
+  })
+}
+
+export function useFixturesByKindQuery(kind: FixtureKind) {
+  return useQuery({
+    queryKey: ['fixtures', kind],
+    queryFn: () => apiGet<FixtureListResponse>(`/fixtures?kind=${kind}`),
   })
 }
 
@@ -49,6 +65,27 @@ export function useFeedbackSnapshotQuery() {
   })
 }
 
+export function useReviewQueueQuery() {
+  return useQuery({
+    queryKey: ['reviews', 'queue'],
+    queryFn: () => apiGet<ReviewQueueResponse>('/reviews/queue'),
+  })
+}
+
+export function useRankBundleMutation() {
+  return useMutation({
+    mutationFn: (request: FixtureRunRequest) =>
+      apiPost<RankedBundle, FixtureRunRequest>('/rank', request),
+  })
+}
+
+export function useRankCustomBundleMutation() {
+  return useMutation({
+    mutationFn: (request: CustomRankRequest) =>
+      apiPost<RankedBundle, CustomRankRequest>('/rank/custom', request),
+  })
+}
+
 export function useCreateDecisionRunMutation() {
   const queryClient = useQueryClient()
   return useMutation({
@@ -58,6 +95,22 @@ export function useCreateDecisionRunMutation() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['runs'] }),
         queryClient.invalidateQueries({ queryKey: ['feedback-snapshot'] }),
+        queryClient.invalidateQueries({ queryKey: ['reviews', 'queue'] }),
+      ])
+    },
+  })
+}
+
+export function useCreateCustomDecisionRunMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (request: CustomDecisionRunRequest) =>
+      apiPost<ApiRunRecord, CustomDecisionRunRequest>('/runs/custom/decide', request),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['runs'] }),
+        queryClient.invalidateQueries({ queryKey: ['feedback-snapshot'] }),
+        queryClient.invalidateQueries({ queryKey: ['reviews', 'queue'] }),
       ])
     },
   })
@@ -72,6 +125,7 @@ export function useCreateAgentRunMutation() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['runs'] }),
         queryClient.invalidateQueries({ queryKey: ['feedback-snapshot'] }),
+        queryClient.invalidateQueries({ queryKey: ['reviews', 'queue'] }),
       ])
     },
   })
@@ -88,6 +142,39 @@ export function useSubmitRunReviewMutation(runId: string | undefined) {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['runs'] }),
         queryClient.invalidateQueries({ queryKey: ['runs', runId] }),
+        queryClient.invalidateQueries({ queryKey: ['reviews', 'queue'] }),
+      ])
+    },
+  })
+}
+
+export function useSubmitRunFeedbackMutation(runId: string | undefined) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (request: RunFeedbackRequest) => {
+      if (!runId) throw new Error('No check selected for feedback.')
+      return apiPost<RunFeedbackResponse, RunFeedbackRequest>(`/runs/${runId}/feedback`, request)
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['feedback-snapshot'] }),
+        queryClient.invalidateQueries({ queryKey: ['runs', runId] }),
+        queryClient.invalidateQueries({ queryKey: ['reviews', 'queue'] }),
+      ])
+    },
+  })
+}
+
+export function useResetLocalDataMutation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (request: ResetLocalDataRequest) =>
+      apiPost<ResetLocalDataResponse, ResetLocalDataRequest>('/admin/reset-local-data', request),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['runs'] }),
+        queryClient.invalidateQueries({ queryKey: ['feedback-snapshot'] }),
+        queryClient.invalidateQueries({ queryKey: ['reviews', 'queue'] }),
       ])
     },
   })

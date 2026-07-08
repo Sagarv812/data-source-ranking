@@ -1,18 +1,29 @@
 import {
+  AlertCircle,
   ArrowLeft,
+  CheckCircle2,
   ClipboardCheck,
   FileSearch,
+  FileText,
   GitBranch,
   ListChecks,
   MessageSquareText,
+  PencilLine,
   Route,
   ShieldCheck,
+  XCircle,
 } from 'lucide-react'
-import type { ReactNode } from 'react'
+import type { FormEvent, ReactNode } from 'react'
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
-import { useHealthQuery, useRunQuery } from '../api/queries'
-import type { ApiRunRecord } from '../api/types'
+import { useHealthQuery, useRunQuery, useSubmitRunFeedbackMutation } from '../api/queries'
+import type {
+  ApiRunRecord,
+  DecisionFeedbackOutcome,
+  RunFeedbackRequest,
+  SourceFeedbackOutcome,
+} from '../api/types'
 import { AppShell } from '../components/AppShell'
 import { DecisionBadge } from '../components/DecisionBadge'
 import { StatusBadge } from '../components/StatusBadge'
@@ -28,6 +39,7 @@ export function RunDetailPage() {
   const { runId } = useParams()
   const health = useHealthQuery()
   const run = useRunQuery(runId)
+  const submitFeedback = useSubmitRunFeedbackMutation(runId)
   const refreshAll = () => {
     void health.refetch()
     void run.refetch()
@@ -35,6 +47,7 @@ export function RunDetailPage() {
 
   const record = run.data
   const decision = record ? decisionObjectFromRunRecord(record) : null
+  const title = record ? recordTitle(record) : ''
   const decisionName = stringField(decision, 'decision')
   const rankedSources = rankedSourcesFromDecision(decision)
   const selectedClaims = uniqueClaims(arrayOfRecords(decision, 'selected_claims'))
@@ -70,7 +83,7 @@ export function RunDetailPage() {
                 <div className="min-w-0">
                   <p className="section-label">Evidence review</p>
                   <h1 className="mt-3 max-w-4xl text-4xl font-bold leading-[1.02] text-ink sm:text-5xl">
-                    {compactFixtureId(record.fixture_id)}
+                    {title}
                   </h1>
                   <p className="mt-4 max-w-3xl text-base leading-7 text-ink-muted">
                     Review the evidence quality, safety checks, and audit trail for this saved {record.kind === 'agent' ? 'guided check' : 'quick check'}.
@@ -92,6 +105,10 @@ export function RunDetailPage() {
                       Open review
                     </Link>
                   ) : null}
+                  <Link className="button-secondary mt-2 w-full" to={`/runs/${record.run_id}/report`}>
+                    <FileText size={17} />
+                    Open report
+                  </Link>
                 </div>
               </div>
             </section>
@@ -164,6 +181,16 @@ export function RunDetailPage() {
                 </DetailSection>
 
                 <PromptPanel decision={decision} />
+
+                {record ? (
+                  <FeedbackPanel
+                    decision={decision}
+                    error={submitFeedback.error}
+                    isPending={submitFeedback.isPending}
+                    onSubmit={(request) => submitFeedback.mutateAsync(request)}
+                    submitted={Boolean(submitFeedback.data)}
+                  />
+                ) : null}
 
                 <DetailSection icon={<Route size={20} />} label="Audit" title={loopAudit.length ? 'Guided check timeline' : 'Check timeline'} compact>
                   {auditEvents.length ? (
@@ -281,7 +308,7 @@ function ScoreBar({ score }: { score: ScoreRow }) {
           <p className="score-row-title">{humanize(score.dimension)}</p>
           <p className="score-row-label">{humanize(score.label)}</p>
         </div>
-        <strong>{score.score === null ? 'n/a' : `${percent}%`}</strong>
+        <strong>{score.score === null ? 'Not scored' : `${percent}%`}</strong>
       </div>
       <div className="score-track" aria-hidden="true">
         <span style={{ width: `${percent}%` }} />
@@ -340,6 +367,143 @@ function PromptPanel({ decision }: { decision: Record<string, unknown> | null })
   )
 }
 
+type FeedbackChoice = {
+  description: string
+  icon: ReactNode
+  label: string
+  outcome: DecisionFeedbackOutcome
+  sourceOutcome: SourceFeedbackOutcome
+}
+
+const feedbackChoices: FeedbackChoice[] = [
+  {
+    description: 'The decision and selected evidence were useful as shown.',
+    icon: <CheckCircle2 size={18} />,
+    label: 'Looks right',
+    outcome: 'accepted',
+    sourceOutcome: 'accepted',
+  },
+  {
+    description: 'The check helped, but the result needs adjustment.',
+    icon: <PencilLine size={18} />,
+    label: 'Needs correction',
+    outcome: 'corrected',
+    sourceOutcome: 'corrected',
+  },
+  {
+    description: 'The decision should not be trusted for this case.',
+    icon: <XCircle size={18} />,
+    label: 'Wrong result',
+    outcome: 'rejected',
+    sourceOutcome: 'rejected',
+  },
+]
+
+function FeedbackPanel({
+  decision,
+  error,
+  isPending,
+  onSubmit,
+  submitted,
+}: {
+  decision: Record<string, unknown> | null
+  error: unknown
+  isPending: boolean
+  onSubmit: (request: RunFeedbackRequest) => Promise<unknown>
+  submitted: boolean
+}) {
+  const [selectedOutcome, setSelectedOutcome] = useState<DecisionFeedbackOutcome>('accepted')
+  const [notes, setNotes] = useState('')
+  const selectedChoice = feedbackChoices.find((choice) => choice.outcome === selectedOutcome) ?? feedbackChoices[0]
+  const selectedSources = stringArrayField(decision, 'selected_sources')
+  const decisionName = stringField(decision, 'decision')
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const sourceOutcomes = selectedSources.map((sourceId) => ({
+      source_id: sourceId,
+      outcome: selectedChoice.sourceOutcome,
+      reason: `${selectedChoice.label} feedback from run detail.`,
+      metadata: {
+        submitted_from: 'run_detail_feedback',
+      },
+    }))
+    await onSubmit({
+      decision_outcome: selectedOutcome,
+      source_outcomes: sourceOutcomes,
+      generated_handoff_accepted: decisionName === 'auto_handoff' ? selectedOutcome === 'accepted' : null,
+      correction_notes: notes.trim() || null,
+      metadata: {
+        submitted_from: 'run_detail_feedback',
+        selected_source_count: selectedSources.length,
+      },
+    })
+  }
+
+  return (
+    <DetailSection icon={<ClipboardCheck size={20} />} label="Feedback" title="Outcome feedback" compact>
+      <form className="space-y-4" onSubmit={(event) => void handleSubmit(event)}>
+        <div className="feedback-choice-grid">
+          {feedbackChoices.map((choice) => {
+            const selected = choice.outcome === selectedOutcome
+            return (
+              <button
+                className={selected ? 'feedback-choice feedback-choice-selected' : 'feedback-choice'}
+                key={choice.outcome}
+                type="button"
+                onClick={() => setSelectedOutcome(choice.outcome)}
+              >
+                <span className="feedback-choice-icon">{choice.icon}</span>
+                <span>
+                  <strong>{choice.label}</strong>
+                  <small>{choice.description}</small>
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="feedback-impact">
+          <p className="section-label">Reliability impact</p>
+          <p>
+            {selectedSources.length
+              ? `${selectedSources.length} selected evidence source${selectedSources.length === 1 ? '' : 's'} will be marked ${selectedChoice.sourceOutcome}.`
+              : 'No selected evidence sources will be changed.'}
+          </p>
+        </div>
+
+        <label className="block">
+          <span className="field-label">Notes</span>
+          <textarea
+            className="field mt-2 min-h-24 py-3 leading-6"
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            placeholder="What should future checks learn from this?"
+          />
+        </label>
+
+        {submitted ? (
+          <div className="feedback-saved">
+            <CheckCircle2 size={17} />
+            <span>Feedback saved. Reliability signals will use it on future checks.</span>
+          </div>
+        ) : null}
+
+        {error ? (
+          <div className="feedback-error">
+            <AlertCircle size={17} />
+            <span>{errorText(error)}</span>
+          </div>
+        ) : null}
+
+        <button className="button-primary w-full" type="submit" disabled={isPending}>
+          {isPending ? 'Saving feedback...' : 'Save feedback'}
+        </button>
+      </form>
+    </DetailSection>
+  )
+}
+
 function AuditEventItem({ event, index }: { event: Record<string, unknown>; index: number }) {
   return (
     <article className="audit-event-item">
@@ -377,6 +541,12 @@ function decisionObjectFromRunRecord(run: ApiRunRecord) {
   if (finalDecision) return finalDecision
   if (stringField(run.result, 'decision')) return run.result
   return initialDecision
+}
+
+function recordTitle(record: ApiRunRecord) {
+  const scenarioTitle = stringField(record.request, 'scenario_title')
+  const bundle = objectField(record.request, 'bundle')
+  return scenarioTitle ?? stringField(bundle, 'title') ?? compactFixtureId(record.fixture_id)
 }
 
 function rankedSourcesFromDecision(decision: Record<string, unknown> | null) {
@@ -422,7 +592,16 @@ function uniqueClaims(claims: Record<string, unknown>[]) {
 }
 
 function nextActionLabel(decision: Record<string, unknown> | null) {
-  return stringField(objectField(decision ?? {}, 'next_action'), 'label') ?? 'No next action'
+  const label = stringField(objectField(decision ?? {}, 'next_action'), 'label')
+  const labels: Record<string, string> = {
+    'ask user to review': 'Ask for review',
+    ask_user_to_review: 'Ask for review',
+    auto_handoff: 'Send handoff',
+    block_output: 'Stop check',
+    generate_context_request: 'Request context',
+  }
+  const key = label?.toLowerCase().replaceAll('_', ' ')
+  return key ? labels[key] ?? humanize(label ?? key) : 'No next action'
 }
 
 function reviewStateText(decision: Record<string, unknown> | null) {
@@ -462,6 +641,10 @@ function stringField(value: Record<string, unknown> | null | undefined, key: str
 function numberField(value: Record<string, unknown> | null | undefined, key: string) {
   const field = value?.[key]
   return typeof field === 'number' ? field : null
+}
+
+function errorText(error: unknown) {
+  return error instanceof Error ? error.message : 'Feedback could not be saved.'
 }
 
 function compactFixtureId(fixtureId: string) {
@@ -537,6 +720,11 @@ function detailText(value: string | null | undefined) {
   const dimensionMatch = value.match(/^([a-z_]+):\s*(.+)$/)
   const withoutScore = (dimensionMatch ? dimensionMatch[2] : value)
     .replace(/\bAuthority score is [\d.]+\.?/gi, '')
+    .replace(/\bauto_handoff\b/gi, 'ready to send')
+    .replace(/\bgenerate_context_request\b/gi, 'needs more context')
+    .replace(/\bneeds_user_review\b/gi, 'review required')
+    .replace(/\bpolicy gates\b/gi, 'safety checks')
+    .replace(/\bstarter decision\b/gi, 'recommendation')
     .replace(/\bthrough the deterministic evidence scorer\b/gi, 'for quality and fit')
     .replace(/\bthe deterministic decision engine\b/gi, 'the decision engine')
     .replace(/\bevidence bundle\b/gi, 'evidence set')
@@ -570,6 +758,7 @@ function formatRunTime(createdAt: string) {
 function humanize(value: string) {
   return value
     .replaceAll('_', ' ')
+    .toLowerCase()
     .replace(/\b\w/g, (letter) => letter.toUpperCase())
     .replace(/\bApi\b/g, 'API')
     .replace(/\bCrm\b/g, 'CRM')

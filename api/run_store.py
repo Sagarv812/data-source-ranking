@@ -47,6 +47,7 @@ class ApiRunSummary(StrictModel):
     kind: ApiRunKind
     bundle_id: str = Field(min_length=1)
     fixture_id: str = Field(min_length=1)
+    title: str | None = None
     created_at: datetime
     decision: str | None = None
     final_decision: str | None = None
@@ -160,6 +161,7 @@ def run_summary(record: ApiRunRecord) -> ApiRunSummary:
         kind=record.kind,
         bundle_id=record.bundle_id,
         fixture_id=record.fixture_id,
+        title=_run_title(record),
         created_at=record.created_at,
         decision=record.result.get("decision"),
         final_decision=(
@@ -168,3 +170,15 @@ def run_summary(record: ApiRunRecord) -> ApiRunSummary:
             else None
         ),
     )
+
+
+def _run_title(record: ApiRunRecord) -> str | None:
+    scenario_title = record.request.get("scenario_title")
+    if isinstance(scenario_title, str) and scenario_title:
+        return scenario_title
+    bundle = record.request.get("bundle")
+    if isinstance(bundle, dict):
+        title = bundle.get("title")
+        if isinstance(title, str) and title:
+            return title
+    return None

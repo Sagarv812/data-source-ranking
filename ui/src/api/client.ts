@@ -1,3 +1,5 @@
+import { getAuthToken } from '../app/auth-client'
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'
 
 export class ApiError extends Error {
@@ -11,7 +13,9 @@ export class ApiError extends Error {
 }
 
 export async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`)
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: await requestHeaders(),
+  })
   if (!response.ok) {
     throw new ApiError(await errorMessage(response), response.status)
   }
@@ -24,15 +28,22 @@ export async function apiPost<TResponse, TBody extends object>(
 ): Promise<TResponse> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: await requestHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
   })
   if (!response.ok) {
     throw new ApiError(await errorMessage(response), response.status)
   }
   return response.json() as Promise<TResponse>
+}
+
+async function requestHeaders(init?: HeadersInit) {
+  const headers = new Headers(init)
+  const token = await getAuthToken()
+  if (token) {
+    headers.set('Authorization', token)
+  }
+  return headers
 }
 
 async function errorMessage(response: Response) {
