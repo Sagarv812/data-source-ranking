@@ -130,7 +130,7 @@ data-source-ranking run-agent fixtures/bundles/acme_auto_handoff.json --feedback
 Start the API:
 
 ```bash
-uvicorn api.main:app --reload
+npm run api:local
 ```
 
 Then inspect:
@@ -144,12 +144,20 @@ curl http://127.0.0.1:8000/fixtures/bundles/acme_auto_handoff
 Start the local UI:
 
 ```bash
-cd ui
-npm install
-npm run dev
+npm run ui:local
 ```
 
-The UI expects the API at `http://127.0.0.1:8000` by default. Use `VITE_API_BASE_URL` if the backend is running somewhere else.
+The local UI command writes `ui/.env.local` with `VITE_API_BASE_URL=http://127.0.0.1:8000` and intentionally omits Cognito values, so the app runs in local unauthenticated mode. If Vite dev mode hits local file watcher limits, use the production-style local preview:
+
+```bash
+npm run ui:preview:local
+```
+
+Override the local API target when needed:
+
+```bash
+node scripts/write-local-ui-env.mjs --api-base-url http://127.0.0.1:9000
+```
 
 For Amplify Hosting, `amplify.yml` deploys the backend, generates `amplify_outputs.json`, writes `ui/.env.production.local` from `custom.API.SourceSignalProductApi.endpoint` and the generated Cognito user-pool client values, and then builds the Vite app. The hosted API is protected by the Amplify Cognito user pool; local development remains unauthenticated unless those auth env vars are present. The generated env file is local build output and should not be committed.
 

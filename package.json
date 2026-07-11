@@ -7,6 +7,10 @@
     "doc": "docs"
   },
   "scripts": {
+    "api:local": "uvicorn api.main:app --reload --host 127.0.0.1 --port 8000",
+    "local:env": "node scripts/write-local-ui-env.mjs",
+    "ui:local": "npm run local:env && npm run dev --prefix ui -- --host 127.0.0.1 --port 5173",
+    "ui:preview:local": "npm run local:env && npm run build:local --prefix ui && npm run preview --prefix ui -- --host 127.0.0.1 --port 4173",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

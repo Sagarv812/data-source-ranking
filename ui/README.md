@@ -7,15 +7,30 @@ React interface for the local data source ranking product.
 ```bash
 npm install
 npm run dev
+npm run build:local
 npm run build
 npm run lint
 ```
 
-The UI expects the FastAPI backend at `http://127.0.0.1:8000` by default.
-Override with `VITE_API_BASE_URL` when needed.
+From the repo root, the smoother local fallback is:
 
 ```bash
-VITE_API_BASE_URL=http://127.0.0.1:8000 npm run dev
+npm run api:local
+npm run ui:local
+```
+
+Run those in two terminals. `npm run ui:local` writes `ui/.env.local` with the local API URL and no Cognito values, which keeps the UI in local unauthenticated mode.
+
+If Vite dev mode hits file watcher limits, use the production-style local preview from the repo root:
+
+```bash
+npm run ui:preview:local
+```
+
+Override the API URL when needed:
+
+```bash
+node scripts/write-local-ui-env.mjs --api-base-url http://127.0.0.1:9000
 ```
 
 Amplify Hosting builds use the root `amplify.yml`. That build generates Amplify outputs and runs `scripts/write-ui-api-env.mjs` so `VITE_API_BASE_URL`, `VITE_AUTH_USER_POOL_ID`, and `VITE_AUTH_USER_POOL_CLIENT_ID` point at the deployed API Gateway and Cognito resources before `npm run build` runs.
