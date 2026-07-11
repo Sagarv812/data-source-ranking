@@ -106,7 +106,9 @@ function tryLocalPythonBundle(outputDir: string) {
 
   const python = findPythonWithPip();
   if (!python) {
-    return false;
+    throw new Error(
+      'Python 3.12 with pip is required to bundle the product API Lambda. In Amplify Hosting, enable the Python 3.12 live package update or set PYTHON to a Python 3.12 executable.',
+    );
   }
 
   const install = spawnSync(
@@ -126,6 +128,7 @@ function tryLocalPythonBundle(outputDir: string) {
 function findPythonWithPip() {
   const candidates = [
     process.env.PYTHON,
+    'python3.12',
     join(process.cwd(), '.venv', 'bin', 'python'),
     'python3',
     'python',
@@ -136,6 +139,12 @@ function findPythonWithPip() {
       continue;
     }
 
+    const version = spawnSync(candidate, ['--version'], { encoding: 'utf8' });
+    const versionText = `${version.stdout ?? ''}${version.stderr ?? ''}`;
+    if (version.status !== 0 || !isPython312OrNewer(versionText)) {
+      continue;
+    }
+
     const result = spawnSync(candidate, ['-m', 'pip', '--version'], { stdio: 'ignore' });
     if (result.status === 0) {
       return candidate;
@@ -143,6 +152,17 @@ function findPythonWithPip() {
   }
 
   return null;
+}
+
+function isPython312OrNewer(versionText: string) {
+  const match = versionText.match(/Python\s+(\d+)\.(\d+)/);
+  if (!match) {
+    return false;
+  }
+
+  const major = Number(match[1]);
+  const minor = Number(match[2]);
+  return major > 3 || (major === 3 && minor >= 12);
 }
 
 export function productApiOutput(productApi: ProductApi) {
